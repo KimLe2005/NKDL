@@ -12,10 +12,10 @@ def main():
     con = duckdb.connect(f'md:?motherduck_token={md_token}')
 
     print("3. Nạp dữ liệu vào tầng Bronze...")
-    # Đọc file CSV vừa tải và nạp vào bảng dữ liệu thô
+    # Đọc chính xác file CSV dữ liệu và nạp vào bảng dữ liệu thô
     con.sql("""
         CREATE OR REPLACE TABLE bronze_supplychain_raw AS 
-        SELECT * FROM read_csv_auto('*.csv', ignore_errors=true)
+        SELECT * FROM read_csv_auto('DataCoSupplyChainDataset.csv', ignore_errors=true)
     """)
 
     print("✅ Hoàn tất nạp dữ liệu thô vào hệ thống Lakehouse!")
