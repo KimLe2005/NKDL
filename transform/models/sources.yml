@@ -1,0 +1,5 @@
+version: 2
+sources:
+  - name: main
+    tables:
+      - name: bronze_supplychain_raw
