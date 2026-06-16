@@ -2,8 +2,8 @@ name: Daily Data Ingestion
 
 on:
   schedule:
-    - cron: '0 17 * * *' # Chạy vào 0h sáng giờ Việt Nam (17h UTC)
-  workflow_dispatch: # Cho phép bạn bấm nút chạy thủ công để test bất cứ lúc nào
+    - cron: '0 17 * * *'
+  workflow_dispatch:
 
 jobs:
   ingest-data:
@@ -20,8 +20,15 @@ jobs:
       - name: Install dependencies
         run: pip install kaggle duckdb
 
+      - name: Setup Kaggle Token
+        env:
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          mkdir -p ~/.kaggle
+          echo "$KAGGLE_API_TOKEN" > ~/.kaggle/access_token
+          chmod 600 ~/.kaggle/access_token
+
       - name: Run Ingestion Script
         env:
           MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
-          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
         run: python ingest.py
