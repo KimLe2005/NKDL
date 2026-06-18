@@ -18,7 +18,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: pip install kaggle duckdb
+        run: pip install kaggle duckdb==1.5.3
 
       - name: Run Ingestion Script
         env:
