@@ -1,24 +1,39 @@
 import os
 import duckdb
 import subprocess
+import glob
 
 def main():
-    print("1. Đang tải và giải nén dữ liệu từ Kaggle...")
-    # Tải dataset trực tiếp bằng Kaggle CLI với Token mới
-    subprocess.run(["kaggle", "datasets", "download", "-d", "shashwatwork/dataco-smart-supply-chain-for-big-data-analysis", "--unzip"], check=True)
+    print("1. Download dataset...")
+    subprocess.run([
+        "kaggle", "datasets", "download",
+        "-d", "shashwatwork/dataco-smart-supply-chain-for-big-data-analysis",
+        "--unzip"
+    ], check=True)
 
-    print("2. Đang kết nối với MotherDuck...")
+    print("2. Find CSV...")
+    csv_files = glob.glob("DataCoSupplyChainDataset.csv")
+    if not csv_files:
+        csv_files = [f for f in glob.glob("*.csv") if "Description" not in f]
+    if not csv_files:
+        raise FileNotFoundError("Could not find the DataCoSupplyChainDataset.csv file.")
+    csv_file = csv_files[0]
+    print("Found:", csv_file)
+
+    print("3. Connect MotherDuck...")
     md_token = os.environ.get('MOTHERDUCK_TOKEN')
-    con = duckdb.connect(f'md:?motherduck_token={md_token}')
+    if not md_token:
+        raise ValueError("MOTHERDUCK_TOKEN environment variable is not set. Please set it before running the script.")
 
-    print("3. Nạp dữ liệu vào tầng Bronze...")
-    # Đọc chính xác file CSV dữ liệu và nạp vào bảng dữ liệu thô
-    con.sql("""
+    con = duckdb.connect(f"md:my_db?motherduck_token={md_token}")
+
+    print("4. Create table...")
+    con.sql(f"""
         CREATE OR REPLACE TABLE bronze_supplychain_raw AS 
-        SELECT * FROM read_csv_auto('DataCoSupplyChainDataset.csv', ignore_errors=true)
+        SELECT * FROM read_csv_auto('{csv_file}', ignore_errors=true)
     """)
 
-    print("✅ Hoàn tất nạp dữ liệu thô vào hệ thống Lakehouse!")
+    print("DONE")
 
 if __name__ == "__main__":
     main()

@@ -18,7 +18,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: pip install kaggle duckdb
+        run: pip install kaggle duckdb==1.5.3 dbt-duckdb
 
       - name: Run Ingestion Script
         env:
@@ -26,3 +26,10 @@ jobs:
           KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
           KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: python ingest.py
+
+      - name: Run dbt transformation and tests
+        env:
+          MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
+        run: |
+          dbt run --project-dir transform --profiles-dir transform
+          dbt test --project-dir transform --profiles-dir transform
