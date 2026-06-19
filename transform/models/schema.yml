@@ -7,4 +7,4 @@ models:
       - name: order_id
         description: "Ma don hang"
         tests:
-          - not_null  # Giữ lại test này vì mã đơn hàng không được để trống
+          - not_null

@@ -1,0 +1,4 @@
+kaggle
+duckdb==1.5.3
+dbt-core==1.8.9
+dbt-duckdb==1.8.3
