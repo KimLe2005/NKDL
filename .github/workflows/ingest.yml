@@ -19,10 +19,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install kaggle
-          pip install duckdb==1.5.3
-          pip install dbt-duckdb==1.8.3  # Khóa phiên bản dbt-duckdb tương thích với DuckDB 1.5.3
-
+          pip install -r requirements.txt
       - name: Run Ingestion Script
         env:
           MOTHERDUCK_TOKEN: ${{ secrets.MOTHERDUCK_TOKEN }}
