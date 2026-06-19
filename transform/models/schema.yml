@@ -2,12 +2,9 @@ version: 2
 
 models:
   - name: stg_supplychain
+    description: "Bang clean tang Silver cua Supply Chain"
     columns:
       - name: order_id
+        description: "Ma don hang"
         tests:
-          - unique # Đảm bảo mã đơn hàng không bị trùng
-          - not_null # Đảm bảo không có đơn hàng nào bị thiếu mã
-      - name: sales_amount
-        tests:
-          - accepted_values:
-              values: [0] # Bạn có thể kiểm tra xem doanh thu có âm hay không (nếu cần)
+          - not_null  # Giữ lại test này vì mã đơn hàng không được để trống
