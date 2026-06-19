@@ -18,7 +18,10 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: pip install kaggle duckdb==1.5.3 dbt-duckdb
+        run: |
+          pip install kaggle
+          pip install duckdb==1.5.3
+          pip install dbt-duckdb==1.8.3  # Khóa phiên bản dbt-duckdb tương thích với DuckDB 1.5.3
 
       - name: Run Ingestion Script
         env:
