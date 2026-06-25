@@ -80,21 +80,20 @@ st.markdown("""
         background-color: #0F172A !important;
     }
 
-    /* KPI Cards Ombre Design */
+    /* KPI Cards Pastel Design */
     .kpi-card {
-        border-radius: 16px;
-        padding: 24px;
+        border-radius: 12px;
+        padding: 20px;
         display: flex;
-        justify-content: space-between;
+        flex-direction: row;
         align-items: center;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        border: none;
+        gap: 20px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         transition: all 0.3s ease;
-        color: white;
     }
     .kpi-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        transform: translateY(-3px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
     }
     .kpi-info {
         display: flex;
@@ -104,55 +103,46 @@ st.markdown("""
     .kpi-title {
         font-size: 13px;
         font-weight: 700;
-        color: rgba(255, 255, 255, 0.85);
         text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 8px;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+        opacity: 0.9;
     }
     .kpi-value {
-        font-size: 32px;
+        font-size: 24px;
         font-weight: 800;
-        color: #FFFFFF;
-        line-height: 1;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        line-height: 1.2;
     }
     .kpi-icon {
-        width: 56px;
-        height: 56px;
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.25);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background-color: #FFFFFF;
         display: flex;
         justify-content: center;
         align-items: center;
-        font-size: 28px;
-        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2);
+        font-size: 24px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        flex-shrink: 0;
     }
     .kpi-delta {
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 700;
-        margin-top: 8px;
-        display: inline-flex;
-        align-items: center;
-        padding: 4px 8px;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.2);
-        color: white;
+        margin-top: 4px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Hàm render KPI Card Ombre
-def render_kpi(title, value, icon, gradient, delta_html=""):
+# Hàm render KPI Card Light Pastel
+def render_kpi(title, value, icon, bg_color, border_color, text_color, delta_html=""):
     delta_str = f'<div class="kpi-delta">{delta_html}</div>' if delta_html else ''
-    return f"""<div class="kpi-card" style="background: {gradient};">
+    return f"""<div class="kpi-card" style="background: {bg_color}; border-left: 5px solid {border_color};">
+<div class="kpi-icon" style="color: {text_color};">{icon}</div>
 <div class="kpi-info">
-<div class="kpi-title">{title}</div>
-<div class="kpi-value">{value}</div>
+<div class="kpi-title" style="color: {text_color};">{title}</div>
+<div class="kpi-value" style="color: {text_color};">{value}</div>
 {delta_str}
 </div>
-<div class="kpi-icon">{icon}</div>
 </div>"""
 
 # Token MotherDuck
@@ -336,13 +326,13 @@ if menu_selection == "Tổng quan Vận hành":
         late_prev = kpis_prev['late_rate'].iloc[0] if kpis_prev is not None and not kpis_prev.empty else None
 
         with col1:
-            st.markdown(render_kpi("DOANH THU", f"${rev_curr:,.0f}" if not pd.isna(rev_curr) else "$0", "💰", "linear-gradient(135deg, #3B82F6, #2563EB)", get_delta_html(rev_curr, rev_prev)), unsafe_allow_html=True)
+            st.markdown(render_kpi("DOANH THU", f"${rev_curr:,.0f}" if not pd.isna(rev_curr) else "$0", "💰", "#EFF6FF", "#3B82F6", "#1E3A8A", get_delta_html(rev_curr, rev_prev)), unsafe_allow_html=True)
         with col2:
-            st.markdown(render_kpi("LỢI NHUẬN", f"${prof_curr:,.0f}" if not pd.isna(prof_curr) else "$0", "📈", "linear-gradient(135deg, #10B981, #059669)", get_delta_html(prof_curr, prof_prev)), unsafe_allow_html=True)
+            st.markdown(render_kpi("LỢI NHUẬN", f"${prof_curr:,.0f}" if not pd.isna(prof_curr) else "$0", "📈", "#F0FDF4", "#10B981", "#064E3B", get_delta_html(prof_curr, prof_prev)), unsafe_allow_html=True)
         with col3:
-            st.markdown(render_kpi("ĐƠN HÀNG", f"{ord_curr:,.0f}" if not pd.isna(ord_curr) else "0", "📦", "linear-gradient(135deg, #8B5CF6, #7C3AED)", get_delta_html(ord_curr, ord_prev)), unsafe_allow_html=True)
+            st.markdown(render_kpi("ĐƠN HÀNG", f"{ord_curr:,.0f}" if not pd.isna(ord_curr) else "0", "📦", "#F5F3FF", "#8B5CF6", "#4C1D95", get_delta_html(ord_curr, ord_prev)), unsafe_allow_html=True)
         with col4:
-            st.markdown(render_kpi("RỦI RO TRỄ HẠN", f"{late_curr:.1f}%" if not pd.isna(late_curr) else "0%", "⚠️", "linear-gradient(135deg, #EF4444, #DC2626)", get_delta_html(late_curr, late_prev, is_inverse=True)), unsafe_allow_html=True)
+            st.markdown(render_kpi("RỦI RO TRỄ HẠN", f"{late_curr:.1f}%" if not pd.isna(late_curr) else "0%", "⚠️", "#FEF2F2", "#EF4444", "#7F1D1D", get_delta_html(late_curr, late_prev, is_inverse=True)), unsafe_allow_html=True)
 
     st.write("<br>", unsafe_allow_html=True)
 
