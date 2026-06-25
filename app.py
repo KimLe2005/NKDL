@@ -133,8 +133,8 @@ with st.sidebar:
         menu_icon="cast",
         default_index=0,
         styles={
-            "container": {"padding": "0!important", "background-color": "transparent"},
-            "icon": {"color": "#64748B", "font-size": "18px"}, 
+            "container": {"padding": "0!important", "background-color": "#0F172A"},
+            "icon": {"color": "#94A3B8", "font-size": "18px"}, 
             "nav-link": {
                 "font-size": "14px", 
                 "text-align": "left", 
@@ -146,7 +146,7 @@ with st.sidebar:
                 "transition": "0.2s"
             },
             "nav-link-selected": {
-                "background-color": "transparent", 
+                "background-color": "#0F172A", 
                 "color": "#FFFFFF", 
                 "font-weight": "800",
                 "border-left": "4px solid #4F46E5"
