@@ -458,8 +458,9 @@ if menu_selection == "Tổng quan Vận hành":
         def get_map_data(where_c):
             query_map = f"""
             SELECT order_country, latitude, longitude, sales_amount, CASE WHEN late_delivery_risk = 1 THEN 'Rủi ro cao' ELSE 'Ổn định' END as status
-            FROM my_db.main.stg_supplychain_v2 USING SAMPLE 10000
+            FROM my_db.main.stg_supplychain_v2
             WHERE {where_c}
+            LIMIT 10000
             """
             return con.execute(query_map).df()
         
