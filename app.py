@@ -79,8 +79,63 @@ st.markdown("""
     [data-testid="stSidebar"] {
         background-color: #0F172A !important;
     }
+
+    /* KPI Cards */
+    .kpi-card {
+        background-color: #FFFFFF;
+        border-radius: 12px;
+        border: 1px solid #E2E8F0;
+        padding: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+    }
+    .kpi-card:hover {
+        border-color: #A78BFA;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(124, 58, 237, 0.1);
+    }
+    .kpi-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #64748B;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 5px;
+    }
+    .kpi-value {
+        font-size: 28px;
+        font-weight: 800;
+        color: #0F172A;
+    }
+    .kpi-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 24px;
+        color: white;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# Hàm render KPI Card
+def render_kpi(title, value, icon, bg_color):
+    return f"""
+    <div class="kpi-card">
+        <div>
+            <div class="kpi-title">{title}</div>
+            <div class="kpi-value">{value}</div>
+        </div>
+        <div class="kpi-icon" style="background: {bg_color};">
+            {icon}
+        </div>
+    </div>
+    """
 
 # Token MotherDuck
 TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuaHBwdjIzNDA2QHN0LnVlbC5lZHUudm4iLCJtZFJlZ2lvbiI6ImF3cy11cy1lYXN0LTEiLCJzZXNzaW9uIjoiYW5ocHB2MjM0MDYuc3QudWVsLmVkdS52biIsInBhdCI6IjVFZEVSNzlZZFpjN2FST1ROSkdTTUlPOHpqTkZfcWV3MzNUaks1bXRnQ3ciLCJ1c2VySWQiOiJkZTIzN2EzMS0yMTg5LTRkNWYtYmIwYS0zZjQ5MzgzOTExOTEiLCJpc3MiOiJtZF9wYXQiLCJyZWFkT25seSI6ZmFsc2UsInRva2VuVHlwZSI6InJlYWRfd3JpdGUiLCJpYXQiOjE3ODIzMTMzNzd9.7g-rGoWNcYNXUEGU5tileJWrBtnGXDlghTtiisqY_eg"
@@ -120,8 +175,8 @@ with st.sidebar:
     st.markdown("""
         <div style="text-align: center; padding-bottom: 20px;">
             <div style="font-size: 50px; margin-bottom: 10px; background: linear-gradient(135deg, #2563EB, #7C3AED); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">🌐</div>
-            <h2 style="color: #FFFFFF; font-weight: 800; margin: 0; font-size: 24px; letter-spacing: -0.5px;">NEXUS<span style="color:#4F46E5;">.AI</span></h2>
-            <p style="color: #94A3B8; font-size: 11px; font-weight: 700; letter-spacing: 1px;">SUPPLY CHAIN CLOUD</p>
+            <h2 style="color: #FFFFFF; font-weight: 800; margin: 0; font-size: 20px;">QUẢN TRỊ RỦI RO</h2>
+            <p style="color: #94A3B8; font-size: 11px; font-weight: 700; letter-spacing: 1px;">CHUỖI CUNG ỨNG</p>
         </div>
     """, unsafe_allow_html=True)
     
@@ -181,10 +236,14 @@ if menu_selection == "Tổng quan Vận hành":
     with st.container(border=True):
         st.markdown("<h4>Hiệu suất Tổng thể</h4>", unsafe_allow_html=True)
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("DOANH THU", f"${kpis['total_revenue'].iloc[0]:,.0f}")
-        col2.metric("LỢI NHUẬN", f"${kpis['total_profit'].iloc[0]:,.0f}")
-        col3.metric("ĐƠN HÀNG", f"{kpis['total_orders'].iloc[0]:,.0f}")
-        col4.metric("RỦI RO TRỄ HẠN", f"{kpis['late_rate'].iloc[0]:.1f}%")
+        with col1:
+            st.markdown(render_kpi("DOANH THU", f"${kpis['total_revenue'].iloc[0]:,.0f}", "💰", "linear-gradient(135deg, #3B82F6, #2563EB)"), unsafe_allow_html=True)
+        with col2:
+            st.markdown(render_kpi("LỢI NHUẬN", f"${kpis['total_profit'].iloc[0]:,.0f}", "📈", "linear-gradient(135deg, #10B981, #059669)"), unsafe_allow_html=True)
+        with col3:
+            st.markdown(render_kpi("ĐƠN HÀNG", f"{kpis['total_orders'].iloc[0]:,.0f}", "📦", "linear-gradient(135deg, #8B5CF6, #7C3AED)"), unsafe_allow_html=True)
+        with col4:
+            st.markdown(render_kpi("RỦI RO TRỄ HẠN", f"{kpis['late_rate'].iloc[0]:.1f}%", "⚠️", "linear-gradient(135deg, #EF4444, #DC2626)"), unsafe_allow_html=True)
 
     st.write("<br>", unsafe_allow_html=True)
 
@@ -322,21 +381,26 @@ elif menu_selection == "Mô hình Dự báo (AI)":
                 
                 fig_fi = px.scatter(melted, x='shap_value', y='feature_idx_jitter', 
                                   color='shap_value', 
-                                  color_continuous_scale=['#3B82F6', '#7C3AED', '#E11D48'])
+                                  color_continuous_scale='RdBu_r')
                 
-                fig_fi.update_traces(marker=dict(size=5, opacity=0.8, line=dict(width=0)))
-                fig_fi.add_vline(x=0, line_width=1, line_color="#CBD5E1", line_dash="dash")
+                fig_fi.update_traces(marker=dict(size=6, opacity=0.8, line=dict(width=0)))
+                fig_fi.add_vline(x=0, line_width=1, line_color="#94A3B8", line_dash="dash")
                 
                 fig_fi.update_layout(
-                    xaxis_title="SHAP Value (Tác động lên mức độ rủi ro)",
+                    xaxis_title="SHAP Value (Tác động lên rủi ro)",
                     yaxis_title="",
-                    coloraxis_colorbar=dict(title="Tác động", thicknessmode="pixels", thickness=12)
+                    coloraxis_colorbar=dict(title="Tác động", thicknessmode="pixels", thickness=15),
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    margin=dict(t=30, b=20, l=20, r=20),
+                    font_family="'Plus Jakarta Sans', sans-serif",
+                    font_color="#475569"
                 )
-                fig_fi = apply_light_theme(fig_fi)
+                fig_fi.update_xaxes(showgrid=True, gridcolor="#F1F5F9", linecolor="#E2E8F0")
                 fig_fi.update_yaxes(
                     tickvals=list(range(len(feature_order))),
                     ticktext=list(feature_order),
-                    showgrid=True, gridwidth=1, gridcolor='#F1F5F9'
+                    showgrid=True, gridwidth=1, gridcolor='#F1F5F9', linecolor="#E2E8F0"
                 )
                 st.plotly_chart(fig_fi, use_container_width=True)
             except Exception as e:
