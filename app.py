@@ -129,16 +129,28 @@ st.markdown("""
         font-size: 28px;
         box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2);
     }
+    .kpi-delta {
+        font-size: 11px;
+        font-weight: 700;
+        margin-top: 8px;
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 8px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # Hàm render KPI Card Ombre
-def render_kpi(title, value, icon, gradient):
+def render_kpi(title, value, icon, gradient, delta_html=""):
     return f"""
     <div class="kpi-card" style="background: {gradient};">
         <div class="kpi-info">
             <div class="kpi-title">{title}</div>
             <div class="kpi-value">{value}</div>
+            {f'<div class="kpi-delta">{delta_html}</div>' if delta_html else ''}
         </div>
         <div class="kpi-icon">
             {icon}
@@ -219,40 +231,116 @@ with st.sidebar:
     )
     
     st.write("---")
-    st.markdown("<p style='font-size:12px; color:#64748B; padding-left:20px;'>☁️ CONNECTED TO <b>MOTHERDUCK</b><br>⚡ REAL-TIME SYNC</p>", unsafe_allow_html=True)
+    
+    st.markdown("<h4 style='color: white; font-size: 14px; margin-bottom: 10px;'>BỘ LỌC TOÀN CỤC</h4>", unsafe_allow_html=True)
+    
+    @st.cache_data(ttl=3600)
+    def get_filter_options():
+        years = con.execute("SELECT DISTINCT order_year FROM my_db.main.dim_time ORDER BY 1 DESC").df()['order_year'].tolist()
+        regions = con.execute("SELECT DISTINCT order_region FROM my_db.main.stg_supplychain_v2 ORDER BY 1").df()['order_region'].tolist()
+        shipping_modes = con.execute("SELECT DISTINCT shipping_mode FROM my_db.main.fact_orders ORDER BY 1").df()['shipping_mode'].tolist()
+        return years, regions, shipping_modes
 
-# ---------------------------------------------------------
+    years_list, regions_list, shipping_modes_list = get_filter_options()
+    
+    # Year filter (Cho phép chọn 'Tất cả')
+    selected_year = st.selectbox("Năm", ["Tất cả"] + [str(y) for y in years_list])
+    # Region filter
+    selected_region = st.selectbox("Khu vực", ["Tất cả"] + regions_list)
+    # Shipping Mode filter
+    selected_shipping = st.selectbox("Phương thức Vận chuyển", ["Tất cả"] + shipping_modes_l# ---------------------------------------------------------
 # MODULE 1: OPERATIONS OVERVIEW
 # ---------------------------------------------------------
 if menu_selection == "Tổng quan Vận hành":
     st.markdown('<div class="gradient-text">Báo cáo Tổng quan Vận hành</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-text">Theo dõi luồng lưu chuyển hàng hoá toàn cầu với dữ liệu xử lý theo thời gian thực.</div>', unsafe_allow_html=True)
 
+    # Helper function tạo mệnh đề WHERE
+    def build_where_clause(y, r, s):
+        conds = ["1=1"]
+        if y != "Tất cả": conds.append(f"order_year = {y}")
+        if r != "Tất cả": conds.append(f"order_region = '{r}'")
+        if s != "Tất cả": conds.append(f"shipping_mode = '{s}'")
+        return " AND ".join(conds)
+
+    def build_prev_where_clause(y, r, s):
+        if y == "Tất cả": return None
+        conds = ["1=1"]
+        conds.append(f"order_year = {int(y) - 1}")
+        if r != "Tất cả": conds.append(f"order_region = '{r}'")
+        if s != "Tất cả": conds.append(f"shipping_mode = '{s}'")
+        return " AND ".join(conds)
+
+    where_clause = build_where_clause(selected_year, selected_region, selected_shipping)
+    prev_where_clause = build_prev_where_clause(selected_year, selected_region, selected_shipping)
+
     @st.cache_data(ttl=3600)
-    def get_kpis():
-        query = """
+    def get_kpis(where_c, prev_where_c):
+        query = f"""
         SELECT 
             SUM(sales_amount) as total_revenue,
             SUM(profit) as total_profit,
             COUNT(DISTINCT order_id) as total_orders,
             SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as late_rate
-        FROM my_db.main.fact_orders
+        FROM my_db.main.stg_supplychain_v2
+        WHERE {where_c}
         """
-        return con.execute(query).df()
+        curr = con.execute(query).df()
+        
+        prev = None
+        if prev_where_c:
+            query_prev = f"""
+            SELECT 
+                SUM(sales_amount) as total_revenue,
+                SUM(profit) as total_profit,
+                COUNT(DISTINCT order_id) as total_orders,
+                SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as late_rate
+            FROM my_db.main.stg_supplychain_v2
+            WHERE {prev_where_c}
+            """
+            prev = con.execute(query_prev).df()
+            
+        return curr, prev
 
-    kpis = get_kpis()
+    kpis_curr, kpis_prev = get_kpis(where_clause, prev_where_clause)
+    
+    def get_delta_html(curr_val, prev_val, is_inverse=False):
+        if prev_val is None or pd.isna(prev_val) or prev_val == 0:
+            return ""
+        pct_change = ((curr_val - prev_val) / prev_val) * 100
+        
+        # Nếu is_inverse = True (như Rủi ro trễ hạn), Tăng là Xấu (Đỏ), Giảm là Tốt (Xanh)
+        is_positive_change = pct_change >= 0
+        is_good = not is_positive_change if is_inverse else is_positive_change
+        
+        color_class = "positive" if is_good else "negative"
+        arrow = "▲" if is_positive_change else "▼"
+        color_code = "#10B981" if is_good else "#EF4444"
+        
+        return f'<span style="color: {color_code};">{arrow} {abs(pct_change):.1f}% so với {int(selected_year)-1}</span>'
 
     with st.container(border=True):
         st.markdown("<h4>Hiệu suất Tổng thể</h4>", unsafe_allow_html=True)
         col1, col2, col3, col4 = st.columns(4)
+        
+        rev_curr = kpis_curr['total_revenue'].iloc[0] if not kpis_curr.empty else 0
+        prof_curr = kpis_curr['total_profit'].iloc[0] if not kpis_curr.empty else 0
+        ord_curr = kpis_curr['total_orders'].iloc[0] if not kpis_curr.empty else 0
+        late_curr = kpis_curr['late_rate'].iloc[0] if not kpis_curr.empty else 0
+        
+        rev_prev = kpis_prev['total_revenue'].iloc[0] if kpis_prev is not None and not kpis_prev.empty else None
+        prof_prev = kpis_prev['total_profit'].iloc[0] if kpis_prev is not None and not kpis_prev.empty else None
+        ord_prev = kpis_prev['total_orders'].iloc[0] if kpis_prev is not None and not kpis_prev.empty else None
+        late_prev = kpis_prev['late_rate'].iloc[0] if kpis_prev is not None and not kpis_prev.empty else None
+
         with col1:
-            st.markdown(render_kpi("DOANH THU", f"${kpis['total_revenue'].iloc[0]:,.0f}", "💰", "linear-gradient(135deg, #3B82F6, #2563EB)"), unsafe_allow_html=True)
+            st.markdown(render_kpi("DOANH THU", f"${rev_curr:,.0f}" if not pd.isna(rev_curr) else "$0", "💰", "linear-gradient(135deg, #3B82F6, #2563EB)", get_delta_html(rev_curr, rev_prev)), unsafe_allow_html=True)
         with col2:
-            st.markdown(render_kpi("LỢI NHUẬN", f"${kpis['total_profit'].iloc[0]:,.0f}", "📈", "linear-gradient(135deg, #10B981, #059669)"), unsafe_allow_html=True)
+            st.markdown(render_kpi("LỢI NHUẬN", f"${prof_curr:,.0f}" if not pd.isna(prof_curr) else "$0", "📈", "linear-gradient(135deg, #10B981, #059669)", get_delta_html(prof_curr, prof_prev)), unsafe_allow_html=True)
         with col3:
-            st.markdown(render_kpi("ĐƠN HÀNG", f"{kpis['total_orders'].iloc[0]:,.0f}", "📦", "linear-gradient(135deg, #8B5CF6, #7C3AED)"), unsafe_allow_html=True)
+            st.markdown(render_kpi("ĐƠN HÀNG", f"{ord_curr:,.0f}" if not pd.isna(ord_curr) else "0", "📦", "linear-gradient(135deg, #8B5CF6, #7C3AED)", get_delta_html(ord_curr, ord_prev)), unsafe_allow_html=True)
         with col4:
-            st.markdown(render_kpi("RỦI RO TRỄ HẠN", f"{kpis['late_rate'].iloc[0]:.1f}%", "⚠️", "linear-gradient(135deg, #EF4444, #DC2626)"), unsafe_allow_html=True)
+            st.markdown(render_kpi("RỦI RO TRỄ HẠN", f"{late_curr:.1f}%" if not pd.isna(late_curr) else "0%", "⚠️", "linear-gradient(135deg, #EF4444, #DC2626)", get_delta_html(late_curr, late_prev, is_inverse=True)), unsafe_allow_html=True)
 
     st.write("<br>", unsafe_allow_html=True)
 
@@ -260,100 +348,143 @@ if menu_selection == "Tổng quan Vận hành":
     with col_a:
         with st.container(border=True):
             @st.cache_data(ttl=3600)
-            def get_late_by_month():
-                query = """
+            def get_late_by_month(where_c):
+                query = f"""
                 SELECT 
-                    t.order_year || '-' || LPAD(t.order_month::VARCHAR, 2, '0') as month,
-                    SUM(CASE WHEN f.late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(f.order_id) as late_rate
-                FROM my_db.main.fact_orders f
-                JOIN my_db.main.dim_time t ON f.order_date = t.order_date
+                    order_year || '-' || LPAD(order_month::VARCHAR, 2, '0') as month,
+                    SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(order_id) as late_rate
+                FROM my_db.main.stg_supplychain_v2
+                WHERE {where_c}
                 GROUP BY 1 ORDER BY 1
                 """
                 return con.execute(query).df()
             
-            df_late_month = get_late_by_month()
-            fig_late_month = px.line(df_late_month, x='month', y='late_rate', markers=True, title="Xu hướng Rủi ro theo Thời gian (%)")
-            fig_late_month.update_traces(line=dict(width=3, color="#4F46E5"), marker=dict(size=8, color="#FFFFFF", line=dict(color="#4F46E5", width=2)))
-            fig_late_month.update_layout(xaxis_title="", yaxis_title="")
-            fig_late_month = apply_light_theme(fig_late_month)
-            st.plotly_chart(fig_late_month, use_container_width=True)
+            df_late_month = get_late_by_month(where_clause)
+            if not df_late_month.empty:
+                # Thêm đường Trung bình trượt (Rolling Avg) 3 tháng
+                df_late_month['rolling_avg'] = df_late_month['late_rate'].rolling(window=3, min_periods=1).mean()
+                
+                fig_late_month = go.Figure()
+                # Đường thực tế (nhạt, đứt nét)
+                fig_late_month.add_trace(go.Scatter(x=df_late_month['month'], y=df_late_month['late_rate'], 
+                                                    mode='lines', name='Thực tế', 
+                                                    line=dict(color='rgba(79, 70, 229, 0.3)', width=2, dash='dash')))
+                # Đường trung bình trượt (đậm, mượt)
+                fig_late_month.add_trace(go.Scatter(x=df_late_month['month'], y=df_late_month['rolling_avg'], 
+                                                    mode='lines+markers', name='Trung bình 3 tháng', 
+                                                    line=dict(color='#4F46E5', width=3), 
+                                                    marker=dict(size=6, color="#FFFFFF", line=dict(color="#4F46E5", width=2))))
+                
+                fig_late_month.update_layout(title="Xu hướng Rủi ro theo Thời gian (%)", xaxis_title="", yaxis_title="", hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+                fig_late_month = apply_light_theme(fig_late_month)
+                st.plotly_chart(fig_late_month, use_container_width=True)
+            else:
+                st.info("Không có dữ liệu cho biểu đồ này")
 
     with col_b:
         with st.container(border=True):
             @st.cache_data(ttl=3600)
-            def get_revenue_impact():
-                query = """
+            def get_revenue_impact(where_c):
+                query = f"""
                 SELECT 
-                    CASE WHEN late_delivery_risk = 1 THEN 'Rủi ro trễ' ELSE 'Đúng tiến độ' END as status,
+                    CASE WHEN late_delivery_risk = 1 THEN 'Rủi ro trễ hạn' ELSE 'Đúng tiến độ' END as status,
                     SUM(sales_amount) as revenue
-                FROM my_db.main.fact_orders
+                FROM my_db.main.stg_supplychain_v2
+                WHERE {where_c}
                 GROUP BY 1
                 """
                 return con.execute(query).df()
             
-            df_rev_impact = get_revenue_impact()
-            fig_impact = px.pie(df_rev_impact, values='revenue', names='status', hole=0.6, title="Doanh thu bị Đe dọa")
-            # Đỏ Hồng cho Rủi ro, Xanh Lục nhẹ cho Đúng tiến độ
-            fig_impact.update_traces(marker=dict(colors=["#E11D48", "#10B981"], line=dict(color='#FFFFFF', width=3)), textinfo='percent', textfont_size=15)
-            fig_impact = apply_light_theme(fig_impact)
-            st.plotly_chart(fig_impact, use_container_width=True)
+            df_rev_impact = get_revenue_impact(where_clause)
+            if not df_rev_impact.empty:
+                fig_impact = px.pie(df_rev_impact, values='revenue', names='status', hole=0.6, title="Doanh thu bị Đe dọa",
+                                   color='status',
+                                   color_discrete_map={'Rủi ro trễ hạn': '#EF4444', 'Đúng tiến độ': '#10B981'})
+                fig_impact.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color='#FFFFFF', width=2)))
+                fig_impact = apply_light_theme(fig_impact)
+                st.plotly_chart(fig_impact, use_container_width=True)
 
     col_c, col_d = st.columns([4, 6])
     with col_c:
         with st.container(border=True):
             @st.cache_data(ttl=3600)
-            def get_late_by_shipping():
-                query = """
+            def get_late_by_shipping(where_c):
+                query = f"""
                 SELECT 
                     shipping_mode,
                     SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(order_id) as late_rate
-                FROM my_db.main.fact_orders
+                FROM my_db.main.stg_supplychain_v2
+                WHERE {where_c}
                 GROUP BY 1 ORDER BY 2 DESC
                 """
                 return con.execute(query).df()
                 
-            df_ship = get_late_by_shipping()
-            # Gradient màu Tím
-            fig_ship = px.bar(df_ship, x='shipping_mode', y='late_rate', title="Rủi ro Vận chuyển", color='late_rate', color_continuous_scale=['#C4B5FD', '#7C3AED'])
-            fig_ship.update_layout(xaxis_title="", yaxis_title="", coloraxis_showscale=False)
-            fig_ship = apply_light_theme(fig_ship)
-            st.plotly_chart(fig_ship, use_container_width=True)
+            df_ship = get_late_by_shipping(where_clause)
+            if not df_ship.empty:
+                fig_ship = px.bar(df_ship, x='shipping_mode', y='late_rate', title="Rủi ro Vận chuyển", color='late_rate', color_continuous_scale=['#C4B5FD', '#7C3AED'])
+                fig_ship.update_layout(xaxis_title="", yaxis_title="", coloraxis_showscale=False, margin=dict(b=0))
+                fig_ship = apply_light_theme(fig_ship)
+                st.plotly_chart(fig_ship, use_container_width=True)
 
     with col_d:
         with st.container(border=True):
             @st.cache_data(ttl=3600)
-            def get_late_by_country():
-                query = """
+            def get_late_by_country(where_c):
+                query = f"""
                 SELECT 
                     order_country,
                     SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as late_rate
                 FROM my_db.main.stg_supplychain_v2
-                GROUP BY 1 HAVING COUNT(*) > 100 ORDER BY 2 DESC LIMIT 10
+                WHERE {where_c}
+                GROUP BY 1 HAVING COUNT(*) > 50 ORDER BY 2 DESC LIMIT 10
                 """
                 return con.execute(query).df()
                 
-            df_country = get_late_by_country()
-            fig_country = px.bar(df_country, x='late_rate', y='order_country', orientation='h', title="Top 10 Quốc gia có Tỷ lệ Trễ cao nhất", color='late_rate', color_continuous_scale=['#93C5FD', '#2563EB'])
-            fig_country.update_layout(xaxis_title="", yaxis_title="", yaxis={'categoryorder':'total ascending'}, coloraxis_showscale=False)
-            fig_country = apply_light_theme(fig_country)
-            st.plotly_chart(fig_country, use_container_width=True)
+            df_country = get_late_by_country(where_clause)
+            if not df_country.empty:
+                fig_country = px.bar(df_country, x='late_rate', y='order_country', orientation='h', title="Top 10 Quốc gia Tỷ lệ Trễ cao (Min 50 đơn)", color='late_rate', color_continuous_scale=['#93C5FD', '#2563EB'])
+                fig_country.update_layout(xaxis_title="", yaxis_title="", yaxis={'categoryorder':'total ascending'}, coloraxis_showscale=False, margin=dict(l=0, r=0))
+                fig_country = apply_light_theme(fig_country)
+                st.plotly_chart(fig_country, use_container_width=True)
 
     with st.container(border=True):
-        st.markdown("<h4>Bản đồ Điểm nóng Toàn cầu (Lat/Lon)</h4>", unsafe_allow_html=True)
+        st.markdown("<h4>Bản đồ Điểm nóng Toàn cầu (Heatmap Density)</h4>", unsafe_allow_html=True)
         @st.cache_data(ttl=3600)
-        def get_map_data():
-            query_map = """
-            SELECT latitude, longitude, sales_amount, CASE WHEN late_delivery_risk = 1 THEN 'Rủi ro cao' ELSE 'Ổn định' END as status
-            FROM my_db.main.stg_supplychain_v2 USING SAMPLE 8000
+        def get_map_data(where_c):
+            query_map = f"""
+            SELECT order_country, latitude, longitude, sales_amount, CASE WHEN late_delivery_risk = 1 THEN 'Rủi ro cao' ELSE 'Ổn định' END as status
+            FROM my_db.main.stg_supplychain_v2 USING SAMPLE 10000
+            WHERE {where_c}
             """
             return con.execute(query_map).df()
         
-        df_map = get_map_data()
-        fig_map = px.scatter_mapbox(df_map, lat="latitude", lon="longitude", color="status",
-                                    size="sales_amount", 
-                                    color_discrete_map={'Rủi ro cao':'#E11D48', 'Ổn định':'#10B981'},
-                                    zoom=1.2, mapbox_style="carto-positron")
-        fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, paper_bgcolor="rgba(0,0,0,0)")
+        df_map = get_map_data(where_clause)
+        
+        if not df_map.empty:
+            country_dict = {
+                'Egipto': 'Egypt', 'Camboya': 'Cambodia', 'Suecia': 'Sweden', 'Costa de Marfil': "Côte d'Ivoire",
+                'Francia': 'France', 'Alemania': 'Germany', 'Brasil': 'Brazil', 'España': 'Spain',
+                'Italia': 'Italy', 'Reino Unido': 'United Kingdom', 'Estados Unidos': 'United States',
+                'Japon': 'Japan', 'Corea del Sur': 'South Korea', 'Nueva Zelanda': 'New Zealand',
+                'Paises Bajos': 'Netherlands', 'Filipinas': 'Philippines', 'Marruecos': 'Morocco',
+                'Argelia': 'Algeria', 'Republica Dominicana': 'Dominican Republic', 'Sudafrica': 'South Africa',
+                'Turquia': 'Turkey', 'Suiza': 'Switzerland', 'Rusia': 'Russia', 'Belgica': 'Belgium'
+            }
+            df_map['order_country'] = df_map['order_country'].replace(country_dict)
+            
+            # Sử dụng Heatmap Density thay cho Scatter
+            fig_map = px.density_mapbox(df_map, lat='latitude', lon='longitude', z='sales_amount', radius=10,
+                                        center=dict(lat=20, lon=0), zoom=1.5,
+                                        mapbox_style="carto-positron", color_continuous_scale="Inferno")
+            fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, paper_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig_map, use_container_width=True)
+        else:
+            st.info("Không có dữ liệu hiển thị bản đồ")
+
+# ---------------------------------------------------------
+# MODULE 2: AI & SHAP (CỰC KỲ ĐẸP & CÔNG NGHỆ)
+# ---------------------------------------------------------
+elif menu_selection == "Mô hình Dự báo (AI)":        fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, paper_bgcolor="rgba(0,0,0,0)")
         st.plotly_chart(fig_map, use_container_width=True)
 
 
@@ -380,6 +511,7 @@ elif menu_selection == "Mô hình Dự báo (AI)":
                 shap_cols = [c for c in df_shap_all.columns if c.startswith('shap_')]
                 melted = pd.melt(df_shap_all, id_vars=['order_id'], value_vars=shap_cols, var_name='feature', value_name='shap_value')
                 melted['feature'] = melted['feature'].str.replace('shap_', '')
+                # Sắp xếp giảm dần để đặc trưng quan trọng nhất nằm trên cùng
                 feature_order = melted.groupby('feature')['shap_value'].apply(lambda x: np.abs(x).mean()).sort_values(ascending=False).index
                 
                 # Biểu đồ SHAP Beeswarm với gradient màu Công nghệ
@@ -469,5 +601,7 @@ elif menu_selection == "Mô hình Dự báo (AI)":
             )
             fig_waterfall = apply_light_theme(fig_waterfall)
             st.plotly_chart(fig_waterfall, use_container_width=True)
+            
+            st.markdown("*💡 **Lưu ý về dữ liệu:** Các giá trị trên biểu đồ Waterfall (trục Y) thể hiện **Log-Odds** (thước đo nội bộ của thuật toán). Tổng các điểm cộng dồn này (cộng với Base Value) sẽ được đưa qua hàm Sigmoid để tính ra tỷ lệ Xác suất rủi ro % hiển thị ở trên.*")
         else:
             st.warning("Không tìm thấy dữ liệu ml_predictions_explained.")
