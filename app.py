@@ -75,11 +75,7 @@ st.markdown("""
         font-size: 18px !important;
     }
     
-    /* Giao diện Dark Sidebar thủ công (không dùng secondaryBackgroundColor để tránh lỗi ô input) */
-    [data-testid="stSidebar"] {
-        background-color: #0F172A !important;
-    }
-
+    /* (Removed Dark Sidebar override to keep filters readable) */
     /* KPI Cards Pastel Design */
     .kpi-card {
         border-radius: 12px;
@@ -196,21 +192,21 @@ with st.sidebar:
         menu_icon="cast",
         default_index=0,
         styles={
-            "container": {"padding": "0!important", "background-color": "#0F172A"},
-            "icon": {"color": "#94A3B8", "font-size": "18px"}, 
+            "container": {"padding": "0!important", "background-color": "transparent"},
+            "icon": {"color": "#64748B", "font-size": "18px"}, 
             "nav-link": {
                 "font-size": "14px", 
                 "text-align": "left", 
                 "margin":"5px 0px", 
-                "color": "#94A3B8",
+                "color": "#475569",
                 "font-weight": "600",
                 "border-radius": "0px",
                 "padding-left": "20px",
                 "transition": "0.2s"
             },
             "nav-link-selected": {
-                "background-color": "#0F172A", 
-                "color": "#FFFFFF", 
+                "background-color": "#EEF2FF", 
+                "color": "#4F46E5", 
                 "font-weight": "800",
                 "border-left": "4px solid #4F46E5"
             },
