@@ -80,58 +80,67 @@ st.markdown("""
         background-color: #0F172A !important;
     }
 
-    /* KPI Cards */
+    /* KPI Cards Ombre Design */
     .kpi-card {
-        background-color: #FFFFFF;
-        border-radius: 12px;
-        border: 1px solid #E2E8F0;
-        padding: 20px;
+        border-radius: 16px;
+        padding: 24px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        border: none;
         transition: all 0.3s ease;
+        color: white;
     }
     .kpi-card:hover {
-        border-color: #A78BFA;
-        transform: translateY(-2px);
-        box-shadow: 0 10px 15px -3px rgba(124, 58, 237, 0.1);
+        transform: translateY(-5px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+    .kpi-info {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
     .kpi-title {
         font-size: 13px;
         font-weight: 700;
-        color: #64748B;
+        color: rgba(255, 255, 255, 0.85);
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 5px;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
     }
     .kpi-value {
-        font-size: 28px;
+        font-size: 32px;
         font-weight: 800;
-        color: #0F172A;
+        color: #FFFFFF;
+        line-height: 1;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     .kpi-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.25);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         display: flex;
         justify-content: center;
         align-items: center;
-        font-size: 24px;
-        color: white;
+        font-size: 28px;
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2);
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Hàm render KPI Card
-def render_kpi(title, value, icon, bg_color):
+# Hàm render KPI Card Ombre
+def render_kpi(title, value, icon, gradient):
     return f"""
-    <div class="kpi-card">
-        <div>
+    <div class="kpi-card" style="background: {gradient};">
+        <div class="kpi-info">
             <div class="kpi-title">{title}</div>
             <div class="kpi-value">{value}</div>
         </div>
-        <div class="kpi-icon" style="background: {bg_color};">
+        <div class="kpi-icon">
             {icon}
         </div>
     </div>
