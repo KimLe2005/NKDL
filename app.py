@@ -5,6 +5,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from streamlit_option_menu import option_menu
+from streamlit_echarts import st_echarts
 
 # Cấu hình trang - Phải luôn ở đầu
 st.set_page_config(page_title="AI Supply Chain Hub", page_icon="🔮", layout="wide", initial_sidebar_state="expanded")
@@ -366,23 +367,44 @@ if menu_selection == "Tổng quan Vận hành":
             
             df_late_month = get_late_by_month(where_clause)
             if not df_late_month.empty:
-                # Thêm đường Trung bình trượt (Rolling Avg) 3 tháng
                 df_late_month['rolling_avg'] = df_late_month['late_rate'].rolling(window=3, min_periods=1).mean()
-                
-                fig_late_month = go.Figure()
-                # Đường thực tế (nhạt, đứt nét)
-                fig_late_month.add_trace(go.Scatter(x=df_late_month['month'], y=df_late_month['late_rate'], 
-                                                    mode='lines', name='Thực tế', 
-                                                    line=dict(color='rgba(79, 70, 229, 0.3)', width=2, dash='dash')))
-                # Đường trung bình trượt (đậm, mượt)
-                fig_late_month.add_trace(go.Scatter(x=df_late_month['month'], y=df_late_month['rolling_avg'], 
-                                                    mode='lines+markers', name='Trung bình 3 tháng', 
-                                                    line=dict(color='#4F46E5', width=3), 
-                                                    marker=dict(size=6, color="#FFFFFF", line=dict(color="#4F46E5", width=2))))
-                
-                fig_late_month.update_layout(title="Xu hướng Rủi ro theo Thời gian (%)", xaxis_title="", yaxis_title="", hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-                fig_late_month = apply_light_theme(fig_late_month)
-                st.plotly_chart(fig_late_month, use_container_width=True)
+                # ECharts Line Chart
+                options_line = {
+                    "title": {"text": "Xu hướng Rủi ro theo Thời gian (%)", "textStyle": {"fontSize": 15, "color": "#1E293B"}},
+                    "tooltip": {"trigger": "axis"},
+                    "legend": {"data": ["Thực tế", "Trung bình 3 tháng"], "bottom": 0},
+                    "grid": {"left": "3%", "right": "4%", "bottom": "15%", "containLabel": True},
+                    "xAxis": {"type": "category", "boundaryGap": False, "data": df_late_month['month'].tolist()},
+                    "yAxis": {"type": "value"},
+                    "series": [
+                        {
+                            "name": "Thực tế",
+                            "type": "line",
+                            "data": df_late_month['late_rate'].fillna(0).tolist(),
+                            "smooth": True,
+                            "lineStyle": {"type": "dashed", "color": "rgba(79, 70, 229, 0.4)", "width": 2},
+                            "itemStyle": {"color": "rgba(79, 70, 229, 0.4)"}
+                        },
+                        {
+                            "name": "Trung bình 3 tháng",
+                            "type": "line",
+                            "data": df_late_month['rolling_avg'].fillna(0).tolist(),
+                            "smooth": True,
+                            "lineStyle": {"color": "#4F46E5", "width": 3},
+                            "itemStyle": {"color": "#4F46E5"},
+                            "areaStyle": {
+                                "color": {
+                                    "type": "linear", "x": 0, "y": 0, "x2": 0, "y2": 1,
+                                    "colorStops": [
+                                        {"offset": 0, "color": "rgba(79, 70, 229, 0.5)"},
+                                        {"offset": 1, "color": "rgba(79, 70, 229, 0.05)"}
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                }
+                st_echarts(options=options_line, height="350px")
             else:
                 st.info("Không có dữ liệu cho biểu đồ này")
 
@@ -402,12 +424,40 @@ if menu_selection == "Tổng quan Vận hành":
             
             df_rev_impact = get_revenue_impact(where_clause)
             if not df_rev_impact.empty:
-                fig_impact = px.pie(df_rev_impact, values='revenue', names='status', hole=0.6, title="Doanh thu bị Đe dọa",
-                                   color='status',
-                                   color_discrete_map={'Rủi ro trễ hạn': '#EF4444', 'Đúng tiến độ': '#10B981'})
-                fig_impact.update_traces(textposition='inside', textinfo='percent+label', marker=dict(line=dict(color='#FFFFFF', width=2)))
-                fig_impact = apply_light_theme(fig_impact)
-                st.plotly_chart(fig_impact, use_container_width=True)
+                data_pie = []
+                for _, row in df_rev_impact.iterrows():
+                    color = "#EF4444" if row['status'] == 'Rủi ro trễ hạn' else "#10B981"
+                    data_pie.append({
+                        "value": row['revenue'], 
+                        "name": row['status'],
+                        "itemStyle": {"color": color}
+                    })
+                    
+                options_pie = {
+                    "title": {"text": "Doanh thu bị Đe dọa", "textStyle": {"fontSize": 15, "color": "#1E293B"}, "left": "center"},
+                    "tooltip": {"trigger": "item", "formatter": "{b}: ${c} ({d}%)"},
+                    "legend": {"bottom": 0},
+                    "series": [
+                        {
+                            "type": "pie",
+                            "radius": ["45%", "75%"],
+                            "avoidLabelOverlap": False,
+                            "itemStyle": {
+                                "borderRadius": 10,
+                                "borderColor": "#fff",
+                                "borderWidth": 2
+                            },
+                            "label": {"show": False, "position": "center"},
+                            "emphasis": {
+                                "label": {"show": True, "fontSize": 16, "fontWeight": "bold"},
+                                "itemStyle": {"shadowBlur": 10, "shadowOffsetX": 0, "shadowColor": "rgba(0, 0, 0, 0.5)"}
+                            },
+                            "labelLine": {"show": False},
+                            "data": data_pie
+                        }
+                    ]
+                }
+                st_echarts(options=options_pie, height="350px")
 
     col_c, col_d = st.columns([4, 6])
     with col_c:
@@ -426,10 +476,26 @@ if menu_selection == "Tổng quan Vận hành":
                 
             df_ship = get_late_by_shipping(where_clause)
             if not df_ship.empty:
-                fig_ship = px.bar(df_ship, x='shipping_mode', y='late_rate', title="Rủi ro Vận chuyển", color='late_rate', color_continuous_scale=['#C4B5FD', '#7C3AED'])
-                fig_ship.update_layout(xaxis_title="", yaxis_title="", coloraxis_showscale=False, margin=dict(b=0))
-                fig_ship = apply_light_theme(fig_ship)
-                st.plotly_chart(fig_ship, use_container_width=True)
+                options_ship = {
+                    "title": {"text": "Rủi ro Vận chuyển (%)", "textStyle": {"fontSize": 15, "color": "#1E293B"}},
+                    "tooltip": {"trigger": "axis"},
+                    "grid": {"left": "3%", "right": "4%", "bottom": "3%", "containLabel": True},
+                    "xAxis": {"type": "category", "data": df_ship['shipping_mode'].tolist(), "axisLabel": {"interval": 0, "rotate": 15}},
+                    "yAxis": {"type": "value"},
+                    "series": [{
+                        "data": df_ship['late_rate'].round(1).tolist(),
+                        "type": "bar",
+                        "barWidth": "50%",
+                        "itemStyle": {
+                            "color": {
+                                "type": "linear", "x": 0, "y": 0, "x2": 0, "y2": 1,
+                                "colorStops": [{"offset": 0, "color": "#7C3AED"}, {"offset": 1, "color": "#C4B5FD"}]
+                            },
+                            "borderRadius": [6, 6, 0, 0]
+                        }
+                    }]
+                }
+                st_echarts(options=options_ship, height="350px")
 
     with col_d:
         with st.container(border=True):
@@ -447,10 +513,26 @@ if menu_selection == "Tổng quan Vận hành":
                 
             df_country = get_late_by_country(where_clause)
             if not df_country.empty:
-                fig_country = px.bar(df_country, x='late_rate', y='order_country', orientation='h', title="Top 10 Quốc gia Tỷ lệ Trễ cao (Min 50 đơn)", color='late_rate', color_continuous_scale=['#93C5FD', '#2563EB'])
-                fig_country.update_layout(xaxis_title="", yaxis_title="", yaxis={'categoryorder':'total ascending'}, coloraxis_showscale=False, margin=dict(l=0, r=0))
-                fig_country = apply_light_theme(fig_country)
-                st.plotly_chart(fig_country, use_container_width=True)
+                df_country = df_country.sort_values('late_rate', ascending=True)
+                options_country = {
+                    "title": {"text": "Top 10 Quốc gia Tỷ lệ Trễ cao", "textStyle": {"fontSize": 15, "color": "#1E293B"}},
+                    "tooltip": {"trigger": "axis"},
+                    "grid": {"left": "3%", "right": "4%", "bottom": "3%", "containLabel": True},
+                    "xAxis": {"type": "value"},
+                    "yAxis": {"type": "category", "data": df_country['order_country'].tolist()},
+                    "series": [{
+                        "data": df_country['late_rate'].round(1).tolist(),
+                        "type": "bar",
+                        "itemStyle": {
+                            "color": {
+                                "type": "linear", "x": 1, "y": 0, "x2": 0, "y2": 0,
+                                "colorStops": [{"offset": 0, "color": "#2563EB"}, {"offset": 1, "color": "#93C5FD"}]
+                            },
+                            "borderRadius": [0, 6, 6, 0]
+                        }
+                    }]
+                }
+                st_echarts(options=options_country, height="350px")
 
     with st.container(border=True):
         st.markdown("<h4>Bản đồ Điểm nóng Toàn cầu (Heatmap Density)</h4>", unsafe_allow_html=True)
