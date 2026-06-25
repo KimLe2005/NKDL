@@ -79,9 +79,14 @@ st.markdown("""
     [data-testid="stSidebar"] {
         background-color: #2563EB !important;
     }
-    [data-testid="stSidebar"] label p, [data-testid="stSidebar"] .stMarkdown p {
+    [data-testid="stSidebar"] label p, 
+    [data-testid="stSidebar"] .stMarkdown p,
+    [data-testid="stSidebar"] h4 {
         color: #FFFFFF !important;
         font-weight: 600;
+    }
+    [data-testid="stSidebar"] hr {
+        border-color: rgba(255,255,255,0.3) !important;
     }
     /* KPI Cards Pastel Design */
     .kpi-card {
@@ -185,9 +190,9 @@ def apply_light_theme(fig):
 with st.sidebar:
     st.markdown("""
         <div style="text-align: center; padding-bottom: 20px;">
-            <div style="font-size: 50px; margin-bottom: 10px; background: linear-gradient(135deg, #2563EB, #7C3AED); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">🌐</div>
+            <div style="font-size: 50px; margin-bottom: 10px; color: #818CF8;">🌐</div>
             <h2 style="color: #FFFFFF; font-weight: 800; margin: 0; font-size: 20px;">QUẢN TRỊ RỦI RO</h2>
-            <p style="color: #94A3B8; font-size: 11px; font-weight: 700; letter-spacing: 1px;">CHUỖI CUNG ỨNG</p>
+            <p style="color: #FFFFFF; font-size: 11px; font-weight: 700; letter-spacing: 1px;">CHUỖI CUNG ỨNG</p>
         </div>
     """, unsafe_allow_html=True)
     
@@ -199,30 +204,30 @@ with st.sidebar:
         menu_icon="cast",
         default_index=0,
         styles={
-            "container": {"padding": "0!important", "background-color": "transparent"},
-            "icon": {"color": "#BFDBFE", "font-size": "18px"}, 
+            "container": {"padding": "10px!important", "background-color": "#FFFFFF", "border-radius": "8px"},
+            "icon": {"color": "#93C5FD", "font-size": "20px"}, 
             "nav-link": {
                 "font-size": "14px", 
                 "text-align": "left", 
                 "margin":"5px 0px", 
-                "color": "#FFFFFF",
-                "font-weight": "600",
-                "border-radius": "0px",
-                "padding-left": "20px",
+                "color": "#3B82F6",
+                "font-weight": "700",
+                "border-radius": "4px",
+                "padding-left": "10px",
                 "transition": "0.2s"
             },
             "nav-link-selected": {
-                "background-color": "rgba(255, 255, 255, 0.15)", 
-                "color": "#FFFFFF", 
+                "background-color": "#EFF6FF", 
+                "color": "#1D4ED8", 
                 "font-weight": "800",
-                "border-left": "4px solid #FFFFFF"
+                "border-left": "4px solid #2563EB"
             },
         }
     )
     
     st.write("---")
     
-    st.markdown("<h4 style='color: white; font-size: 14px; margin-bottom: 10px;'>BỘ LỌC TOÀN CỤC</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='color: #FFFFFF !important; font-size: 14px; font-weight: 800; margin-bottom: 10px;'>BỘ LỌC TOÀN CỤC</h4>", unsafe_allow_html=True)
     
     @st.cache_data(ttl=3600)
     def get_filter_options():
