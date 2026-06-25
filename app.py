@@ -248,7 +248,12 @@ with st.sidebar:
     # Region filter
     selected_region = st.selectbox("Khu vực", ["Tất cả"] + regions_list)
     # Shipping Mode filter
-    selected_shipping = st.selectbox("Phương thức Vận chuyển", ["Tất cả"] + shipping_modes_l# ---------------------------------------------------------
+    selected_shipping = st.selectbox("Phương thức Vận chuyển", ["Tất cả"] + shipping_modes_list)
+    
+    st.write("---")
+    st.markdown("<p style='font-size:12px; color:#64748B; padding-left:20px;'>☁️ CONNECTED TO <b>MOTHERDUCK</b><br>⚡ REAL-TIME SYNC</p>", unsafe_allow_html=True)
+
+# ---------------------------------------------------------
 # MODULE 1: OPERATIONS OVERVIEW
 # ---------------------------------------------------------
 if menu_selection == "Tổng quan Vận hành":
