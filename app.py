@@ -145,18 +145,15 @@ st.markdown("""
 
 # Hàm render KPI Card Ombre
 def render_kpi(title, value, icon, gradient, delta_html=""):
-    return f"""
-    <div class="kpi-card" style="background: {gradient};">
-        <div class="kpi-info">
-            <div class="kpi-title">{title}</div>
-            <div class="kpi-value">{value}</div>
-            {f'<div class="kpi-delta">{delta_html}</div>' if delta_html else ''}
-        </div>
-        <div class="kpi-icon">
-            {icon}
-        </div>
-    </div>
-    """
+    delta_str = f'<div class="kpi-delta">{delta_html}</div>' if delta_html else ''
+    return f"""<div class="kpi-card" style="background: {gradient};">
+<div class="kpi-info">
+<div class="kpi-title">{title}</div>
+<div class="kpi-value">{value}</div>
+{delta_str}
+</div>
+<div class="kpi-icon">{icon}</div>
+</div>"""
 
 # Token MotherDuck
 TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuaHBwdjIzNDA2QHN0LnVlbC5lZHUudm4iLCJtZFJlZ2lvbiI6ImF3cy11cy1lYXN0LTEiLCJzZXNzaW9uIjoiYW5ocHB2MjM0MDYuc3QudWVsLmVkdS52biIsInBhdCI6IjVFZEVSNzlZZFpjN2FST1ROSkdTTUlPOHpqTkZfcWV3MzNUaks1bXRnQ3ciLCJ1c2VySWQiOiJkZTIzN2EzMS0yMTg5LTRkNWYtYmIwYS0zZjQ5MzgzOTExOTEiLCJpc3MiOiJtZF9wYXQiLCJyZWFkT25seSI6ZmFsc2UsInRva2VuVHlwZSI6InJlYWRfd3JpdGUiLCJpYXQiOjE3ODIzMTMzNzd9.7g-rGoWNcYNXUEGU5tileJWrBtnGXDlghTtiisqY_eg"
