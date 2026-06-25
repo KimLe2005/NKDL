@@ -75,9 +75,9 @@ st.markdown("""
         font-size: 18px !important;
     }
     
-    /* Sidebar nền xanh dương, chữ trắng */
+    /* Sidebar nền xanh dương đậm, chữ trắng */
     [data-testid="stSidebar"] {
-        background-color: #2563EB !important;
+        background-color: #1E3A8A !important;
     }
     [data-testid="stSidebar"] label p, 
     [data-testid="stSidebar"] .stMarkdown p,
@@ -204,23 +204,23 @@ with st.sidebar:
         menu_icon="cast",
         default_index=0,
         styles={
-            "container": {"padding": "10px!important", "background-color": "#FFFFFF", "border-radius": "8px"},
+            "container": {"padding": "0!important", "background-color": "transparent", "border-radius": "8px"},
             "icon": {"color": "#93C5FD", "font-size": "20px"}, 
             "nav-link": {
                 "font-size": "14px", 
                 "text-align": "left", 
                 "margin":"5px 0px", 
-                "color": "#3B82F6",
-                "font-weight": "700",
+                "color": "#94A3B8",
+                "font-weight": "600",
                 "border-radius": "4px",
                 "padding-left": "10px",
                 "transition": "0.2s"
             },
             "nav-link-selected": {
-                "background-color": "#EFF6FF", 
-                "color": "#1D4ED8", 
+                "background-color": "rgba(255, 255, 255, 0.1)", 
+                "color": "#FFFFFF", 
                 "font-weight": "800",
-                "border-left": "4px solid #2563EB"
+                "border-left": "4px solid #FFFFFF"
             },
         }
     )
