@@ -486,12 +486,6 @@ if menu_selection == "Tổng quan Vận hành":
         else:
             st.info("Không có dữ liệu hiển thị bản đồ")
 
-# ---------------------------------------------------------
-# MODULE 2: AI & SHAP (CỰC KỲ ĐẸP & CÔNG NGHỆ)
-# ---------------------------------------------------------
-elif menu_selection == "Mô hình Dự báo (AI)":        fig_map.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, paper_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig_map, use_container_width=True)
-
 
 # ---------------------------------------------------------
 # MODULE 2: AI & SHAP (CỰC KỲ ĐẸP & CÔNG NGHỆ)
