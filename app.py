@@ -207,9 +207,6 @@ def render_kpi(title, value, icon, bg_color, border_color, text_color, delta_htm
 </div>
 </div>"""
 
-# Token MotherDuck
-TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuaHBwdjIzNDA2QHN0LnVlbC5lZHUudm4iLCJtZFJlZ2lvbiI6ImF3cy11cy1lYXN0LTEiLCJzZXNzaW9uIjoiYW5ocHB2MjM0MDYuc3QudWVsLmVkdS52biIsInBhdCI6IjVFZEVSNzlZZFpjN2FST1ROSkdTTUlPOHpqTkZfcWV3MzNUaks1bXRnQ3ciLCJ1c2VySWQiOiJkZTIzN2EzMS0yMTg5LTRkNWYtYmIwYS0zZjQ5MzgzOTExOTEiLCJpc3MiOiJtZF9wYXQiLCJyZWFkT25seSI6ZmFsc2UsInRva2VuVHlwZSI6InJlYWRfd3JpdGUiLCJpYXQiOjE3ODIzMTMzNzd9.7g-rGoWNcYNXUEGU5tileJWrBtnGXDlghTtiisqY_eg"
-
 country_dict = {
     'Egipto': 'Ai Cập (Egypt)', 
     'Camboya': 'Campuchia (Cambodia)', 
@@ -249,7 +246,7 @@ country_dict = {
 
 @st.cache_resource
 def get_connection():
-    return duckdb.connect(f"md:my_db?motherduck_token={TOKEN}")
+    return duckdb.connect(f"md:my_db?motherduck_token={st.secrets['MOTHERDUCK_TOKEN']}")
 
 con = get_connection()
 
@@ -296,8 +293,8 @@ with st.sidebar:
     # Menu học theo bố cục Sidebar trong hình mẫu (Icon bên trái, thanh viền trái khi chọn)
     menu_selection = option_menu(
         menu_title=None,
-        options=["Tổng quan Vận hành", "Mô hình Dự báo (AI)"],
-        icons=["grid-fill", "lightning-charge-fill"],
+        options=["Tổng quan Vận hành", "Mô hình Dự báo (AI)", "GenBI Insight"],
+        icons=["grid-fill", "lightning-charge-fill", "stars"],
         menu_icon="cast",
         default_index=0,
         styles={
@@ -327,10 +324,13 @@ with st.sidebar:
     
     @st.cache_data(ttl=3600)
     def get_filter_options():
-        years = con.execute("SELECT DISTINCT order_year FROM my_db.main.dim_time ORDER BY 1 DESC").df()['order_year'].tolist()
-        regions = con.execute("SELECT DISTINCT order_region FROM my_db.main.stg_supplychain_v2 ORDER BY 1").df()['order_region'].tolist()
-        shipping_modes = con.execute("SELECT DISTINCT shipping_mode FROM my_db.main.fact_orders ORDER BY 1").df()['shipping_mode'].tolist()
-        return years, regions, shipping_modes
+        try:
+            years = con.execute("SELECT DISTINCT order_year FROM vanh_gold.main.dim_time ORDER BY 1 DESC").df()['order_year'].tolist()
+            regions = con.execute("SELECT DISTINCT order_region FROM vanh_gold.main.stg_supplychain_v2 ORDER BY 1").df()['order_region'].tolist()
+            shipping_modes = con.execute("SELECT DISTINCT shipping_mode FROM vanh_gold.main.fact_orders ORDER BY 1").df()['shipping_mode'].tolist()
+            return years, regions, shipping_modes
+        except Exception:
+            return [], [], []
 
     years_list, regions_list, shipping_modes_list = get_filter_options()
 
@@ -380,7 +380,7 @@ if menu_selection == "Tổng quan Vận hành":
             SUM(profit) as total_profit,
             COUNT(DISTINCT order_id) as total_orders,
             SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as late_rate
-        FROM my_db.main.stg_supplychain_v2
+        FROM vanh_gold.main.stg_supplychain_v2
         WHERE {where_c}
         """
         curr = con.execute(query).df()
@@ -393,7 +393,7 @@ if menu_selection == "Tổng quan Vận hành":
                 SUM(profit) as total_profit,
                 COUNT(DISTINCT order_id) as total_orders,
                 SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as late_rate
-            FROM my_db.main.stg_supplychain_v2
+            FROM vanh_gold.main.stg_supplychain_v2
             WHERE {prev_where_c}
             """
             prev = con.execute(query_prev).df()
@@ -439,6 +439,34 @@ if menu_selection == "Tổng quan Vận hành":
             st.markdown(render_kpi("ĐƠN HÀNG", f"{ord_curr:,.0f}" if not pd.isna(ord_curr) else "0", "📦", "#F5F3FF", "#8B5CF6", "#4C1D95", get_delta_html(ord_curr, ord_prev)), unsafe_allow_html=True)
         with col4:
             st.markdown(render_kpi("RỦI RO TRỄ HẠN", f"{late_curr:.1f}%" if not pd.isna(late_curr) else "0%", "⚠️", "#FEF2F2", "#EF4444", "#7F1D1D", get_delta_html(late_curr, late_prev, is_inverse=True)), unsafe_allow_html=True)
+        
+    # ---------------------------------------------------------
+    # AI QUICK INSIGHT
+    # ---------------------------------------------------------
+    with st.container(border=True):
+        st.markdown("<h4>🤖 AI Quick Insight</h4>", unsafe_allow_html=True)
+        if st.button("✨ Tóm tắt nhanh bằng AI", key="quick_insight_btn"):
+            from groq import Groq
+            try:
+                quick_context = f"""
+                    Doanh thu: ${rev_curr:,.0f}
+                    Lợi nhuận: ${prof_curr:,.0f}
+                    Tổng đơn hàng: {ord_curr:,.0f}
+                    Tỷ lệ rủi ro trễ hạn: {late_curr:.1f}%
+                """
+                client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+                resp = client.chat.completions.create(
+                    model="openai/gpt-oss-20b",
+                    messages=[
+                        {"role": "system", "content": "Bạn là chuyên gia Supply Chain. Tóm tắt tình hình trong đúng 2 câu ngắn, tiếng Việt, nêu rõ điểm đáng chú ý nhất."},
+                        {"role": "user", "content": f"Dữ liệu hiện tại:\n{quick_context}\n\nTóm tắt nhanh tình hình."},
+                    ],
+                    temperature=0.5,
+                    max_tokens=200,
+                )
+                st.info(resp.choices[0].message.content)
+            except Exception as e:
+                st.error(f"Lỗi gọi AI: {e}")
 
     st.write("<br>", unsafe_allow_html=True)
 
@@ -451,7 +479,7 @@ if menu_selection == "Tổng quan Vận hành":
                 SELECT 
                     order_year || '-' || LPAD(order_month::VARCHAR, 2, '0') as month,
                     SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(order_id) as late_rate
-                FROM my_db.main.stg_supplychain_v2
+                FROM vanh_gold.main.stg_supplychain_v2
                 WHERE {where_c}
                 GROUP BY 1 ORDER BY 1
                 """
@@ -497,7 +525,7 @@ if menu_selection == "Tổng quan Vận hành":
                 SELECT 
                     CASE WHEN late_delivery_risk = 1 THEN 'Rủi ro trễ hạn' ELSE 'Đúng tiến độ' END as status,
                     SUM(sales_amount) as revenue
-                FROM my_db.main.stg_supplychain_v2
+                FROM vanh_gold.main.stg_supplychain_v2
                 WHERE {where_c}
                 GROUP BY 1
                 """
@@ -532,7 +560,7 @@ if menu_selection == "Tổng quan Vận hành":
                 SELECT 
                     shipping_mode,
                     SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(order_id) as late_rate
-                FROM my_db.main.stg_supplychain_v2
+                FROM vanh_gold.main.stg_supplychain_v2
                 WHERE {where_c}
                 GROUP BY 1 ORDER BY 2 DESC
                 """
@@ -554,7 +582,7 @@ if menu_selection == "Tổng quan Vận hành":
                 SELECT 
                     order_country,
                     SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as late_rate
-                FROM my_db.main.stg_supplychain_v2
+                FROM vanh_gold.main.stg_supplychain_v2
                 WHERE {where_c}
                 GROUP BY 1 HAVING COUNT(*) > 50 ORDER BY 2 DESC LIMIT 10
                 """
@@ -575,7 +603,7 @@ if menu_selection == "Tổng quan Vận hành":
         def get_map_data(where_c):
             query_map = f"""
             SELECT order_country, latitude, longitude, sales_amount, CASE WHEN late_delivery_risk = 1 THEN 'Rủi ro cao' ELSE 'Ổn định' END as status
-            FROM my_db.main.stg_supplychain_v2
+            FROM vanh_gold.main.stg_supplychain_v2
             WHERE {where_c}
             LIMIT 10000
             """
@@ -627,15 +655,15 @@ elif menu_selection == "Mô hình Dự báo (AI)":
     @st.cache_data(ttl=3600)
     def get_ai_summary_stats():
         # 1. Số đơn rủi ro cao
-        risk_count = con.execute("SELECT COUNT(DISTINCT order_id) as cnt FROM my_db.main.ml_predictions_explained WHERE predicted_label = 1").df()['cnt'].iloc[0]
+        risk_count = con.execute("SELECT COUNT(DISTINCT order_id) as cnt FROM my_db.main.ml_predictions_explained WHERE prediction = 1").df()['cnt'].iloc[0]
         
         # 2. Doanh thu rủi ro
         sales_risk = con.execute("""
             SELECT SUM(sales_amount) as total_sales
             FROM (
                 SELECT order_id, MAX(sales_amount) as sales_amount
-                FROM my_db.main.stg_supplychain_v2
-                WHERE order_id IN (SELECT DISTINCT order_id FROM my_db.main.ml_predictions_explained WHERE predicted_label = 1)
+                FROM vanh_gold.main.stg_supplychain_v2
+                WHERE order_id IN (SELECT DISTINCT order_id FROM my_db.main.ml_predictions_explained WHERE prediction = 1)
                 GROUP BY order_id
             )
         """).df()['total_sales'].iloc[0]
@@ -653,25 +681,25 @@ elif menu_selection == "Mô hình Dự báo (AI)":
                 p.order_id as "Order ID",
                 s.customer_fname || ' ' || s.customer_lname as "Khách hàng",
                 p.order_region as "Khu vực",
-                p.predicted_probability as "Xác suất rủi ro",
+                p.prob as "Xác suất rủi ro",
                 MAX(s.sales_amount) as "Doanh thu"
             FROM my_db.main.ml_predictions_explained p
-            JOIN my_db.main.stg_supplychain_v2 s ON p.order_id = s.order_id
-            WHERE p.predicted_label = 1
-            GROUP BY p.order_id, "Khách hàng", p.order_region, p.predicted_probability
-            ORDER BY p.predicted_probability DESC
+            JOIN vanh_gold.main.stg_supplychain_v2 s ON p.order_id = s.order_id
+            WHERE p.prediction = 1
+            GROUP BY p.order_id, "Khách hàng", p.order_region, p.prob
+            ORDER BY p.prob DESC
             LIMIT 10
         """).df()
         
         # 5. So sánh nhóm
         ship_risk = con.execute("""
-            SELECT shipping_mode, AVG(predicted_probability) * 100.0 as avg_risk
+            SELECT shipping_mode, AVG(prob) * 100.0 as avg_risk
             FROM my_db.main.ml_predictions_explained
             GROUP BY 1 ORDER BY 2 DESC
         """).df()
         
         region_risk = con.execute("""
-            SELECT order_region, AVG(predicted_probability) * 100.0 as avg_risk
+            SELECT order_region, AVG(prob) * 100.0 as avg_risk
             FROM my_db.main.ml_predictions_explained
             GROUP BY 1 ORDER BY 2 DESC LIMIT 10
         """).df()
@@ -705,7 +733,7 @@ elif menu_selection == "Mô hình Dự báo (AI)":
         @st.cache_data(ttl=3600)
         def get_shap_for_order(order_id):
             try:
-                return con.execute(f"SELECT * FROM my_db.main.ml_predictions_explained WHERE order_id = {order_id}").df()
+                return con.execute(f"SELECT * FROM my_db.main.ml_predictions_explained WHERE order_id = '{order_id}'").df()
             except:
                 return pd.DataFrame()
 
@@ -752,9 +780,9 @@ elif menu_selection == "Mô hình Dự báo (AI)":
                         decreasing = {"marker":{"color":"#4F46E5"}}  # Xanh Tím an toàn
                     ))
                     
-                    prob = row['predicted_probability']
-                    pred = "⚠️ NGUY CƠ TRỄ HẠN CAO" if row['predicted_label'] == 1 else "✅ TIẾN ĐỘ AN TOÀN"
-                    pred_color = "#E11D48" if row['predicted_label'] == 1 else "#10B981"
+                    prob = row['prob']
+                    pred = "⚠️ NGUY CƠ TRỄ HẠN CAO" if row['prediction'] == 1 else "✅ TIẾN ĐỘ AN TOÀN"
+                    pred_color = "#E11D48" if row['prediction'] == 1 else "#10B981"
                     
                     fig_waterfall.update_layout(
                         title=f"<span style='color:{pred_color}; font-size:20px;'>{pred}</span> <br><span style='font-size:13px;color:#64748B;'>Xác suất rủi ro: {prob*100:.1f}%</span>",
@@ -921,7 +949,7 @@ elif menu_selection == "Mô hình Dự báo (AI)":
         if st.button("🚀 CHẠY DỰ BÁO RỦI RO", type="primary", use_container_width=True):
             # Query the closest predictions from database
             query_exact = f"""
-            SELECT AVG(predicted_probability) as prob
+            SELECT AVG(prob) as prob
             FROM my_db.main.ml_predictions_explained
             WHERE shipping_mode = '{sim_ship}'
               AND order_region = '{sim_region}'
@@ -935,7 +963,7 @@ elif menu_selection == "Mô hình Dự báo (AI)":
             if prob is None:
                 # Fallback to shipping mode & region
                 query_fallback = f"""
-                SELECT AVG(predicted_probability) as prob
+                SELECT AVG(prob) as prob
                 FROM my_db.main.ml_predictions_explained
                 WHERE shipping_mode = '{sim_ship}'
                   AND order_region = '{sim_region}'
@@ -968,3 +996,278 @@ elif menu_selection == "Mô hình Dự báo (AI)":
                 </p>
             </div>
             """, unsafe_allow_html=True)
+
+# ---------------------------------------------------------
+# MODULE 3: GenBI Insight (Text-to-SQL)
+# ---------------------------------------------------------
+elif menu_selection == "GenBI Insight":
+    from groq import Groq
+    import re
+
+    st.markdown('<div class="gradient-text">GenBI — Trợ lý phân tích</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-text">AI tự sinh câu truy vấn SQL theo câu hỏi, chạy thật trên dữ liệu, sau đó diễn giải kết quả.</div>', unsafe_allow_html=True)
+
+    # ----------------------------------------------------------
+    # Mô tả schema cho AI biết để sinh SQL đúng — CHỈ các bảng được phép truy vấn
+    # ----------------------------------------------------------
+    SCHEMA_DESCRIPTION = """
+Bảng: my_db.main.ml_predictions_explained
+Cột: order_id (VARCHAR), shipping_mode (VARCHAR), customer_state (VARCHAR), order_type (VARCHAR),
+order_region (VARCHAR), order_weekday (VARCHAR), order_month (VARCHAR), customer_segment (VARCHAR),
+days_for_shipment_scheduled (BIGINT), actual (BIGINT), prob (DOUBLE - xác suất rủi ro trễ hạn 0-1),
+prediction (BIGINT - 1 là dự đoán trễ, 0 là đúng hạn), base_value (DOUBLE), created_at (VARCHAR),
+các cột shap_* (DOUBLE - mức độ ảnh hưởng SHAP của từng đặc trưng).
+
+Bảng: my_db.main.ml_performance_metrics
+Cột: chứa chỉ số hiệu suất mô hình, có cột auc (DOUBLE).
+
+Bảng: my_db.main.ml_feature_importance
+Cột: chứa thông tin mức độ quan trọng của từng đặc trưng (feature importance).
+"""
+
+    ALLOWED_TABLES = [
+        "my_db.main.ml_predictions_explained",
+        "my_db.main.ml_performance_metrics",
+        "my_db.main.ml_feature_importance",
+    ]
+
+    def is_safe_select(sql: str) -> bool:
+        """Kiểm tra câu SQL chỉ là SELECT đơn giản, không có lệnh nguy hiểm."""
+        s = sql.strip().rstrip(";").strip()
+        if not s.lower().startswith("select"):
+            return False
+        forbidden = ["insert", "update", "delete", "drop", "alter", "attach", "detach",
+                     "create", "grant", "pragma", "copy", "export", "import", ";"]
+        lowered = s.lower()
+        for kw in forbidden:
+            if kw in lowered:
+                return False
+        # Chỉ cho phép truy vấn đúng các bảng được khai báo
+        if not any(t in lowered for t in ALLOWED_TABLES):
+            return False
+        return True
+
+    def extract_sql(text: str) -> str:
+        """Lấy câu SQL từ phản hồi của AI (loại bỏ markdown ```sql ... ```)."""
+        match = re.search(r"```sql\s*(.*?)```", text, re.DOTALL | re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+        match = re.search(r"```\s*(.*?)```", text, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+        return text.strip()
+
+    # ----------------------------------------------------------
+    # Suggestions: phân loại câu hỏi SQL-able vs analytical
+    # ----------------------------------------------------------
+    SQL_SUGGESTIONS = [
+        "Top 5 đơn hàng có xác suất rủi ro trễ cao nhất là đơn hàng nào?",
+        "Phương thức vận chuyển nào có tỷ lệ dự đoán trễ (prediction=1) cao nhất?",
+        "Khu vực (order_region) nào có xác suất rủi ro trễ trung bình cao nhất?",
+        "Phân khúc khách hàng nào có tỷ lệ giao trễ nhiều nhất?",
+    ]
+
+    ANALYTICAL_SUGGESTIONS = [
+        "Đề xuất 3 hành động cụ thể để giảm tỷ lệ giao hàng trễ?",
+        "Khu vực nào cần ưu tiên cải thiện logistics và vì sao?",
+        "Phương thức vận chuyển nào đang rủi ro nhất, giải pháp là gì?",
+    ]
+
+    ALL_SUGGESTIONS = SQL_SUGGESTIONS + ANALYTICAL_SUGGESTIONS
+
+    # Lấy context tổng hợp để trả lời câu hỏi phân tích (không cần SQL)
+    ANALYTICAL_CONTEXT = """
+Thông tin tổng quan từ dữ liệu Supply Chain (DataCo):
+- Tổng số đơn hàng: ~180,000 giao dịch
+- Mô hình dự báo: CatBoost, AUC ≈ 0.90
+- Phương thức vận chuyển: Standard Class có tỷ lệ trễ cao nhất (~60%),
+  First Class và Second Class ở mức trung bình (~40%), Same Day thấp nhất
+- Khu vực rủi ro cao: Western Europe, Central America, Southern Asia
+- Yếu tố SHAP quan trọng nhất: shipping_mode, days_for_shipment_scheduled, order_region
+- Mùa cao điểm (tháng 11-12) làm tăng xác suất trễ đáng kể
+"""
+
+    # ----------------------------------------------------------
+    # Reset state TRƯỚC khi tạo widget (Tránh lỗi StreamlitAPIException)
+    # ----------------------------------------------------------
+    if st.session_state.get("genbi_reset", False):
+        # Đặt lại giá trị mặc định cho widget thông qua session state
+        st.session_state["genbi_select"] = "-- Chọn câu hỏi --"
+        st.session_state["genbi_textarea"] = ""
+        
+        # Xóa bỏ các kết quả lưu trữ ở dưới
+        st.session_state.pop("genbi_answer", None)
+        st.session_state.pop("genbi_sql", None)
+        st.session_state.pop("genbi_sql_result", None)
+        st.session_state.pop("genbi_last_question", None)
+        
+        # Tắt cờ reset để lần chạy sau không bị lặp lại
+        st.session_state["genbi_reset"] = False
+
+    # Selectbox gợi ý — default là "-- Chọn câu hỏi --" (placeholder, không phải lựa chọn thật)
+    selected_q = st.selectbox(
+        "Câu hỏi gợi ý:",
+        ["-- Chọn câu hỏi --"] + ALL_SUGGESTIONS,
+        key="genbi_select",
+    )
+
+    # Ô nhập tay — luôn hiển thị, độc lập với selectbox
+    user_typed = st.text_area(
+        "Nhập câu hỏi của bạn tại đây:",
+        height=80,
+        key="genbi_textarea",
+        placeholder="Ví dụ: Tháng nào có tỷ lệ giao trễ cao nhất?",
+    )
+
+    # Ưu tiên: ô nhập tay > câu hỏi gợi ý (nếu đã chọn)
+    if user_typed and user_typed.strip():
+        user_question = user_typed.strip()
+    elif selected_q != "-- Chọn câu hỏi --":
+        user_question = selected_q
+    else:
+        user_question = ""
+
+    # Preview câu hỏi sẽ được xử lý
+    if user_question:
+        st.info(f"📝 {user_question}")
+
+    col_btn1, col_btn2, col_empty = st.columns([1.5, 1.2, 5])  # Thêm cột trống để đẩy nút về bên trái
+    with col_btn1:
+        run_clicked = st.button("🚀 Phân tích với AI", type="primary")
+    with col_btn2:
+        clear_clicked = st.button("🗑️ Xóa câu hỏi")
+
+    # Logic nút xóa: Chỉ bật cờ hiệu và ép rerun
+    if clear_clicked:
+        st.session_state["genbi_reset"] = True
+        st.rerun()
+
+    if run_clicked and user_question and user_question.strip():
+        # Tạo một container hiển thị trạng thái loading động
+        with st.status("🤖 Trợ lý GenBI đang xử lý...", expanded=True) as status:
+            try:
+                client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+
+                is_analytical = user_question in ANALYTICAL_SUGGESTIONS
+
+                if is_analytical:
+                    # ---------- Câu hỏi phân tích: dùng context AI ----------
+                    status.update(label="🧠 Đang phân tích chuyên sâu dữ liệu Supply Chain...", state="running")
+                    
+                    interpret_resp = client.chat.completions.create(
+                        model="openai/gpt-oss-20b",
+                        messages=[
+                            {"role": "system", "content": "Bạn là chuyên gia phân tích Supply Chain. Dựa vào thông tin dữ liệu được cung cấp, hãy trả lời bằng tiếng Việt, ngắn gọn, dùng bullet point, có thể hành động được. KHÔNG tự bịa số liệu ngoài những gì đã cho."},
+                            {"role": "user", "content": f"Thông tin dữ liệu:\n{ANALYTICAL_CONTEXT}\n\nCâu hỏi: {user_question}\n\nHãy phân tích và đưa ra khuyến nghị cụ thể."},
+                        ],
+                        temperature=0.5,
+                        max_tokens=1024,
+                    )
+                    st.session_state["genbi_answer"] = interpret_resp.choices[0].message.content
+                    st.session_state["genbi_last_question"] = user_question
+                    st.session_state.pop("genbi_sql", None)
+                    st.session_state.pop("genbi_sql_result", None)
+
+                else:
+                    # ---------- BƯỚC 1: Sinh câu SQL (Text-to-SQL) ----------
+                    status.update(label="📝 Bước 1: Đang chuyển đổi câu hỏi thành truy vấn SQL...", state="running")
+                    
+                    sql_gen_resp = client.chat.completions.create(
+                        model="openai/gpt-oss-20b",
+                        messages=[
+                            {"role": "system", "content": f"""Bạn là chuyên gia viết SQL cho DuckDB. Dựa trên schema sau, hãy viết ĐÚNG 1 câu SQL SELECT để trả lời câu hỏi.
+{SCHEMA_DESCRIPTION}
+
+QUY TẮC BẮT BUỘC:
+- Chỉ viết câu SELECT, không viết INSERT/UPDATE/DELETE/DROP hay bất kỳ lệnh nào khác.
+- Luôn thêm LIMIT (tối đa 50 dòng) trừ khi câu hỏi là dạng tổng hợp (COUNT/AVG/SUM) chỉ trả 1 dòng.
+- Chỉ dùng đúng tên bảng/cột đã cho trong schema, không tự tạo cột không tồn tại.
+- Tên bảng PHẢI viết đầy đủ dạng: my_db.main.ml_predictions_explained
+- Chỉ trả về DUY NHẤT câu SQL, đặt trong khối ```sql ... ```, không giải thích gì thêm."""},
+                            {"role": "user", "content": f"Câu hỏi: {user_question}"},
+                        ],
+                        temperature=0,
+                        max_tokens=400,
+                    )
+                    raw_sql = extract_sql(sql_gen_resp.choices[0].message.content)
+                    st.session_state["genbi_sql"] = raw_sql
+
+                    # ---------- BƯỚC 2: Kiểm tra và chạy SQL ----------
+                    status.update(label="🔍 Bước 2: Kiểm tra an toàn và truy vấn dữ liệu thật...", state="running")
+                    
+                    if not is_safe_select(raw_sql):
+                        status.update(label="⚠️ Phát hiện câu lệnh SQL không an toàn!", state="error")
+                        st.error("⚠️ Câu SQL do AI sinh ra không hợp lệ hoặc không an toàn, không thực thi. Vui lòng thử diễn đạt lại câu hỏi.")
+                    else:
+                        df_result = con.execute(raw_sql).df()
+                        st.session_state["genbi_sql_result"] = df_result
+
+                        # ---------- BƯỚC 3: AI diễn giải ----------
+                        status.update(label="💡 Bước 3: Đang tổng hợp dữ liệu và lập báo cáo khuyến nghị...", state="running")
+                        
+                        result_text = df_result.to_string(index=False) if not df_result.empty else "Không có dữ liệu phù hợp."
+                        interpret_resp = client.chat.completions.create(
+                            model="openai/gpt-oss-20b",
+                            messages=[
+                                {"role": "system", "content": "Bạn là chuyên gia phân tích Supply Chain. Dựa CHÍNH XÁC vào dữ liệu được cung cấp (không tự thêm số liệu khác), trả lời bằng tiếng Việt, ngắn gọn, dùng bullet point, có thể hành động được."},
+                                {"role": "user", "content": f"Câu hỏi: {user_question}\n\nKết quả truy vấn dữ liệu thật:\n{result_text}\n\nHãy phân tích và đưa khuyến nghị."},
+                            ],
+                            temperature=0.5,
+                            max_tokens=1024,
+                        )
+                        st.session_state["genbi_answer"] = interpret_resp.choices[0].message.content
+                        st.session_state["genbi_last_question"] = user_question
+
+                # --- LƯU LỊCH SỬ NGAY KHI THÀNH CÔNG ---
+                if "genbi_answer" in st.session_state:
+                    if "genbi_history" not in st.session_state:
+                        st.session_state["genbi_history"] = []
+                    
+                    new_entry = (
+                        st.session_state["genbi_last_question"], 
+                        st.session_state.get("genbi_sql", "Câu hỏi phân tích chuyên sâu (Không dùng SQL)"), 
+                        st.session_state["genbi_answer"]
+                    )
+                    # Tránh trùng lặp câu hỏi trong lịch sử
+                    already_exists = any(e[0] == new_entry[0] for e in st.session_state["genbi_history"])
+                    if not already_exists:
+                        st.session_state["genbi_history"].append(new_entry)
+
+                # Hoàn thành đổi trạng thái box loading thành công
+                status.update(label="✅ Phân tích hoàn tất!", state="complete", expanded=False)
+
+            except Exception as e:
+                status.update(label="❌ Quá trình phân tích gặp lỗi!", state="error")
+                st.error(f"Lỗi xử lý: {e}")
+
+    # ----------------------------------------------------------
+    # Hiển thị: câu SQL đã sinh + bảng kết quả + phân tích AI
+    # ----------------------------------------------------------
+    if "genbi_sql" in st.session_state and st.session_state["genbi_sql"]:
+        with st.expander("🛠️ Xem câu SQL do AI sinh ra"):
+            st.code(st.session_state["genbi_sql"], language="sql")
+
+    if "genbi_sql_result" in st.session_state and st.session_state["genbi_sql_result"] is not None:
+        st.markdown("#### 📊 Dữ liệu thật truy vấn được")
+        st.dataframe(st.session_state["genbi_sql_result"], use_container_width=True)
+
+    if "genbi_answer" in st.session_state:
+        st.markdown("### 💡 Kết quả phân tích")
+        st.markdown(st.session_state["genbi_answer"])
+
+        st.download_button(
+            "📥 Tải kết quả phân tích (.txt)",
+            data=st.session_state["genbi_answer"],
+            file_name="genbi_phan_tich.txt",
+            key="download_btn_unique" # Thêm key cố định để tránh xung đột nút bấm
+        )
+
+    # Đưa khối lịch sử ra ngoài cùng cấp để luôn hiển thị ở dưới đáy trang
+    if st.session_state.get("genbi_history"):
+        st.markdown("---")
+        st.markdown("#### 📜 Lịch sử phân tích")
+        for i, (q, sql, a) in enumerate(st.session_state["genbi_history"], 1):
+            with st.expander(f"#{i} — {q[:70]}"):
+                if sql:
+                    st.code(sql, language="sql")
+                st.markdown(a)
