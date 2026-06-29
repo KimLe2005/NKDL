@@ -659,8 +659,6 @@ if menu_selection == "Tổng quan Vận hành":
 # MODULE 2: AI & SHAP (CỰC KỲ ĐẸP & CÔNG NGHỆ)
 # ---------------------------------------------------------
 elif menu_selection == "Mô hình Dự báo (AI)":
-    st.markdown('<div class="gradient-text">Mô hình Phân tích rủi ro bằng Trí tuệ Nhân tạo</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-text">Giải mã thuật toán Machine Learning - Ứng dụng công nghệ SHAP để giải thích các quyết định dự báo rủi ro.</div>', unsafe_allow_html=True)
 
     @st.cache_data(ttl=3600)
     def get_ai_summary_stats():
@@ -683,7 +681,7 @@ elif menu_selection == "Mô hình Dự báo (AI)":
         try:
             auc_val = con.execute("SELECT auc FROM my_db.main.ml_performance_metrics LIMIT 1").df()['auc'].iloc[0]
         except:
-            auc_val = 0.852 # fallback
+            auc_val = 0.852
             
         # 4. Danh sách Top 10 đơn hàng rủi ro cao nhất
         top_risky_df = con.execute("""
@@ -716,296 +714,296 @@ elif menu_selection == "Mô hình Dự báo (AI)":
         
         return risk_count, sales_risk, auc_val, top_risky_df, ship_risk, region_risk
 
-    risk_count, sales_risk, auc_val, top_risky_df, ship_risk, region_risk = get_ai_summary_stats()
+    # ── Load data TRƯỚC khi render bất kỳ thứ gì ──────────────
+    # Trick: dùng st.fragment để isolate render Module 2 khỏi DOM cũ
+    @st.fragment
+    def render_module2_content():
+        risk_count, sales_risk, auc_val, top_risky_df, ship_risk, region_risk = get_ai_summary_stats()
 
-    # 1. KPI cards ở đầu trang AI
-    with st.container(border=True):
-        st.markdown("<h4 style='margin-top:0px;'>Hiệu suất Hệ thống & Rủi ro Chuỗi cung ứng</h4>", unsafe_allow_html=True)
-        col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
-        with col_kpi1:
-            st.markdown(render_kpi("ĐƠN HÀNG RỦI RO CAO", f"{risk_count:,}", "⚠️", "#FEF2F2", "#EF4444", "#7F1D1D"), unsafe_allow_html=True)
-        with col_kpi2:
-            st.markdown(render_kpi("DOANH THU BỊ ĐE DỌA", f"${sales_risk:,.0f}", "💸", "#FFFBEB", "#F59E0B", "#78350F"), unsafe_allow_html=True)
-        with col_kpi3:
-            st.markdown(render_kpi("ĐỘ TIN CẬY MÔ HÌNH (AUC)", f"{auc_val:.1%}", "📈", "#F0FDF4", "#10B981", "#064E3B"), unsafe_allow_html=True)
+        st.markdown('<div class="gradient-text">Mô hình Phân tích rủi ro bằng Trí tuệ Nhân tạo</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sub-text">Giải mã thuật toán Machine Learning - Ứng dụng công nghệ SHAP để giải thích các quyết định dự báo rủi ro.</div>', unsafe_allow_html=True)
 
-    # 2. Không gian xử lý đơn hàng rủi ro (Table & Waterfall side-by-side)
-    with st.container(border=True):
-        st.markdown("<h4>🔍 KHÔNG GIAN XỬ LÝ ĐƠN HÀNG RỦI RO (RISK RESOLUTION WORKSPACE)</h4>", unsafe_allow_html=True)
-        
-        @st.cache_data(ttl=3600)
-        def get_all_order_ids():
-            try:
-                return con.execute("SELECT order_id FROM my_db.main.ml_predictions_explained LIMIT 200").df()['order_id'].tolist()
-            except:
-                return []
-                
-        @st.cache_data(ttl=3600)
-        def get_shap_for_order(order_id):
-            try:
-                return con.execute(f"SELECT * FROM my_db.main.ml_predictions_explained WHERE order_id = '{order_id}'").df()
-            except:
-                return pd.DataFrame()
+        # 1. KPI cards ở đầu trang AI
+        with st.container(border=True):
+            st.markdown("<h4 style='margin-top:0px;'>Hiệu suất Hệ thống & Rủi ro Chuỗi cung ứng</h4>", unsafe_allow_html=True)
+            col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
+            with col_kpi1:
+                st.markdown(render_kpi("ĐƠN HÀNG RỦI RO CAO", f"{risk_count:,}", "⚠️", "#FEF2F2", "#EF4444", "#7F1D1D"), unsafe_allow_html=True)
+            with col_kpi2:
+                st.markdown(render_kpi("DOANH THU BỊ ĐE DỌA", f"${sales_risk:,.0f}", "💸", "#FFFBEB", "#F59E0B", "#78350F"), unsafe_allow_html=True)
+            with col_kpi3:
+                st.markdown(render_kpi("ĐỘ TIN CẬY MÔ HÌNH (AUC)", f"{auc_val:.1%}", "📈", "#F0FDF4", "#10B981", "#064E3B"), unsafe_allow_html=True)
 
-        top_ids = top_risky_df["Order ID"].tolist()
-        all_ids = get_all_order_ids()
-        selectbox_options = top_ids + [id for id in all_ids if id not in top_ids]
-
-        if selectbox_options:
-            col_wf1, col_wf2 = st.columns([4, 6])
+        # 2. Không gian xử lý đơn hàng rủi ro (Table & Waterfall side-by-side)
+        with st.container(border=True):
+            st.markdown("<h4>🔍 KHÔNG GIAN XỬ LÝ ĐƠN HÀNG RỦI RO (RISK RESOLUTION WORKSPACE)</h4>", unsafe_allow_html=True)
             
-            with col_wf1:
-                st.markdown("<h5 style='margin-top:0px;'>📋 Top đơn hàng rủi ro cần xử lý</h5>", unsafe_allow_html=True)
-                display_df = top_risky_df.copy()
-                display_df["Xác suất rủi ro"] = display_df["Xác suất rủi ro"].apply(lambda x: f"{x:.1%}")
-                display_df["Doanh thu"] = display_df["Doanh thu"].apply(lambda x: f"${x:,.0f}")
-                st.dataframe(display_df, use_container_width=True, hide_index=True)
-                
-                selected_order = st.selectbox("👉 Chọn Order ID để xem phân tích rủi ro Waterfall:", selectbox_options, key="wf_select_order")
-                
-            with col_wf2:
-                df_selected_row = get_shap_for_order(selected_order)
-                if not df_selected_row.empty:
-                    row = df_selected_row.iloc[0]
-                    shap_cols = [c for c in df_selected_row.columns if c.startswith('shap_')]
+            @st.cache_data(ttl=3600)
+            def get_all_order_ids():
+                try:
+                    return con.execute("SELECT order_id FROM my_db.main.ml_predictions_explained LIMIT 200").df()['order_id'].tolist()
+                except:
+                    return []
                     
-                    shap_values = []
-                    features = []
-                    for c in shap_cols:
-                        val = row[c]
-                        feat_name = c.replace('shap_', '').upper()
-                        feat_val = row[c.replace('shap_', '')] if c.replace('shap_', '') in row else "N/A"
-                        features.append(f"{feat_name}<br><span style='font-size:11px;color:#64748B;'>{feat_val}</span>")
-                        shap_values.append(val)
+            @st.cache_data(ttl=3600)
+            def get_shap_for_order(order_id):
+                try:
+                    return con.execute(f"SELECT * FROM my_db.main.ml_predictions_explained WHERE order_id = '{order_id}'").df()
+                except:
+                    return pd.DataFrame()
+
+            top_ids = top_risky_df["Order ID"].tolist()
+            all_ids = get_all_order_ids()
+            selectbox_options = top_ids + [id for id in all_ids if id not in top_ids]
+
+            if selectbox_options:
+                col_wf1, col_wf2 = st.columns([4, 6])
+                
+                with col_wf1:
+                    st.markdown("<h5 style='margin-top:0px;'>📋 Top đơn hàng rủi ro cần xử lý</h5>", unsafe_allow_html=True)
+                    display_df = top_risky_df.copy()
+                    display_df["Xác suất rủi ro"] = display_df["Xác suất rủi ro"].apply(lambda x: f"{x:.1%}")
+                    display_df["Doanh thu"] = display_df["Doanh thu"].apply(lambda x: f"${x:,.0f}")
+                    st.dataframe(display_df, use_container_width=True, hide_index=True)
+                    
+                    selected_order = st.selectbox("👉 Chọn Order ID để xem phân tích rủi ro Waterfall:", selectbox_options, key="wf_select_order")
+                    
+                with col_wf2:
+                    df_selected_row = get_shap_for_order(selected_order)
+                    if not df_selected_row.empty:
+                        row = df_selected_row.iloc[0]
+                        shap_cols = [c for c in df_selected_row.columns if c.startswith('shap_')]
                         
-                    fig_waterfall = go.Figure(go.Waterfall(
-                        name = "Order", orientation = "v",
-                        measure = ["relative"] * len(features),
-                        x = features, textposition = "outside",
-                        text = [f"{v:+.2f}" for v in shap_values],
-                        textfont=dict(color="#0F172A", size=13, weight="bold"),
-                        y = shap_values,
-                        connector = {"line":{"color":"#E2E8F0", "width":2}},
-                        increasing = {"marker":{"color":"#E11D48"}}, # Đỏ Hồng nguy cơ
-                        decreasing = {"marker":{"color":"#4F46E5"}}  # Xanh Tím an toàn
-                    ))
+                        shap_values = []
+                        features = []
+                        for c in shap_cols:
+                            val = row[c]
+                            feat_name = c.replace('shap_', '').upper()
+                            feat_val = row[c.replace('shap_', '')] if c.replace('shap_', '') in row else "N/A"
+                            features.append(f"{feat_name}<br><span style='font-size:11px;color:#64748B;'>{feat_val}</span>")
+                            shap_values.append(val)
+                            
+                        fig_waterfall = go.Figure(go.Waterfall(
+                            name = "Order", orientation = "v",
+                            measure = ["relative"] * len(features),
+                            x = features, textposition = "outside",
+                            text = [f"{v:+.2f}" for v in shap_values],
+                            textfont=dict(color="#0F172A", size=13, weight="bold"),
+                            y = shap_values,
+                            connector = {"line":{"color":"#E2E8F0", "width":2}},
+                            increasing = {"marker":{"color":"#E11D48"}},
+                            decreasing = {"marker":{"color":"#4F46E5"}}
+                        ))
+                        
+                        prob = row['predicted_probability']
+                        pred = "⚠️ NGUY CƠ TRỄ HẠN CAO" if row['predicted_label'] == 1 else "✅ TIẾN ĐỘ AN TOÀN"
+                        pred_color = "#E11D48" if row['predicted_label'] == 1 else "#10B981"
+                        
+                        fig_waterfall.update_layout(
+                            title=f"<span style='color:{pred_color}; font-size:20px;'>{pred}</span> <br><span style='font-size:13px;color:#64748B;'>Xác suất rủi ro: {prob*100:.1f}%</span>",
+                            showlegend=False, waterfallgap=0.2, margin=dict(t=50, b=20, l=20, r=20)
+                        )
+                        fig_waterfall = apply_light_theme(fig_waterfall)
+                        st.plotly_chart(fig_waterfall, use_container_width=True)
+                        
+                        st.markdown("*💡 **Lưu ý về dữ liệu:** Các giá trị trên biểu đồ Waterfall thể hiện **Log-Odds** (thước đo nội bộ của thuật toán). Tổng điểm cộng dồn này (cộng Base Value) qua hàm Sigmoid sẽ ra Xác suất rủi ro %.*")
+                    else:
+                        st.warning(f"Không tìm thấy thông tin giải thích SHAP cho Order ID: {selected_order}")
+            else:
+                st.warning("Không tìm thấy dữ liệu ml_predictions_explained.")
+
+        # 3. Phân tích đặc trưng ảnh hưởng (Beeswarm & Feature Importance side-by-side)
+        with st.container(border=True):
+            st.markdown("<h4 style='text-align:center;'>PHÂN TÍCH YẾU TỐ ẢNH HƯỞNG ĐẾN QUYẾT ĐỊNH DỰ BÁO (SHAP DETAILED ANALYSIS)</h4>", unsafe_allow_html=True)
+            @st.cache_data(ttl=3600)
+            def get_shap_beeswarm():
+                query = "SELECT * FROM my_db.main.ml_predictions_explained LIMIT 300"
+                try:
+                    return con.execute(query).df()
+                except:
+                    return pd.DataFrame() 
                     
-                    prob = row['predicted_probability']
-                    pred = "⚠️ NGUY CƠ TRỄ HẠN CAO" if row['predicted_label'] == 1 else "✅ TIẾN ĐỘ AN TOÀN"
-                    pred_color = "#E11D48" if row['predicted_label'] == 1 else "#10B981"
+            df_shap_all = get_shap_beeswarm()
+            if not df_shap_all.empty:
+                try:
+                    shap_cols = [c for c in df_shap_all.columns if c.startswith('shap_')]
+                    melted = pd.melt(df_shap_all, id_vars=['order_id'], value_vars=shap_cols, var_name='feature', value_name='shap_value')
+                    melted['feature'] = melted['feature'].str.replace('shap_', '')
+                    feature_order = melted.groupby('feature')['shap_value'].apply(lambda x: np.abs(x).mean()).sort_values(ascending=False).index
                     
-                    fig_waterfall.update_layout(
-                        title=f"<span style='color:{pred_color}; font-size:20px;'>{pred}</span> <br><span style='font-size:13px;color:#64748B;'>Xác suất rủi ro: {prob*100:.1f}%</span>",
-                        showlegend=False, waterfallgap=0.2, margin=dict(t=50, b=20, l=20, r=20)
+                    mean_shap = melted.groupby('feature')['shap_value'].apply(lambda x: np.abs(x).mean()).reset_index()
+                    mean_shap.columns = ['feature', 'mean_abs_shap']
+                    mean_shap = mean_shap.sort_values(by='mean_abs_shap', ascending=True)
+                    
+                    fig_bar = px.bar(
+                        mean_shap, 
+                        x='mean_abs_shap', 
+                        y='feature', 
+                        orientation='h',
+                        title="Mức độ Ảnh hưởng Trung bình (Độ quan trọng)",
+                        color='mean_abs_shap',
+                        color_continuous_scale=['#93C5FD', '#2563EB']
                     )
-                    fig_waterfall = apply_light_theme(fig_waterfall)
-                    st.plotly_chart(fig_waterfall, use_container_width=True)
+                    fig_bar.update_traces(marker_line_width=0, opacity=0.9)
+                    fig_bar.update_layout(xaxis_title="Tác động trung bình lên xác suất trễ hạn", yaxis_title="", coloraxis_showscale=False, margin=dict(t=50, b=20, l=20, r=20))
+                    fig_bar = apply_light_theme(fig_bar)
+
+                    n_features = len(feature_order)
+                    feature_to_idx = {feat: (n_features - 1 - i) for i, feat in enumerate(feature_order)}
+                    melted['feature_idx'] = melted['feature'].map(feature_to_idx)
+                    melted['feature_idx_jitter'] = melted['feature_idx'] + np.random.uniform(-0.25, 0.25, len(melted))
                     
-                    st.markdown("*💡 **Lưu ý về dữ liệu:** Các giá trị trên biểu đồ Waterfall thể hiện **Log-Odds** (thước đo nội bộ của thuật toán). Tổng điểm cộng dồn này (cộng Base Value) qua hàm Sigmoid sẽ ra Xác suất rủi ro %.*")
-                else:
-                    st.warning(f"Không tìm thấy thông tin giải thích SHAP cho Order ID: {selected_order}")
-        else:
-            st.warning("Không tìm thấy dữ liệu ml_predictions_explained.")
+                    fig_fi = px.scatter(melted, x='shap_value', y='feature_idx_jitter', 
+                                      color='shap_value', 
+                                      color_continuous_scale='RdBu_r')
+                    
+                    fig_fi.update_traces(marker=dict(size=6, opacity=0.8, line=dict(width=0)))
+                    fig_fi.add_vline(x=0, line_width=1, line_color="#94A3B8", line_dash="dash")
+                    
+                    fig_fi.update_layout(
+                        title="SHAP Beeswarm Plot (Phân bố chi tiết tác động)",
+                        xaxis_title="SHAP Value (Tác động lên rủi ro)",
+                        yaxis_title="",
+                        coloraxis_colorbar=dict(title="Tác động", thicknessmode="pixels", thickness=15),
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        margin=dict(t=50, b=20, l=20, r=20),
+                        font_family="'Plus Jakarta Sans', sans-serif",
+                        font_color="#334155"
+                    )
+                    fig_fi.update_xaxes(showgrid=True, gridcolor="#F1F5F9", linecolor="#E2E8F0")
+                    fig_fi.update_yaxes(
+                        tickvals=list(range(n_features)),
+                        ticktext=list(reversed(feature_order)),
+                        showgrid=True, gridwidth=1, gridcolor='#F1F5F9', linecolor="#E2E8F0"
+                    )
+                    
+                    col_fi1, col_fi2 = st.columns(2)
+                    with col_fi1:
+                        st.plotly_chart(fig_bar, use_container_width=True)
+                    with col_fi2:
+                        st.plotly_chart(fig_fi, use_container_width=True)
+                except Exception as e:
+                    import traceback
+                    with open("shap_error.log", "w") as f:
+                        f.write(traceback.format_exc())
+                    st.error(f"Lỗi khi vẽ biểu đồ SHAP: {str(e)}")
+            else:
+                st.warning("Không tìm thấy dữ liệu ml_predictions_explained.")
 
-    # 3. Phân tích đặc trưng ảnh hưởng (Beeswarm & Feature Importance side-by-side)
-    with st.container(border=True):
-        st.markdown("<h4 style='text-align:center;'>PHÂN TÍCH YẾU TỐ ẢNH HƯỞNG ĐẾN QUYẾT ĐỊNH DỰ BÁO (SHAP DETAILED ANALYSIS)</h4>", unsafe_allow_html=True)
-        @st.cache_data(ttl=3600)
-        def get_shap_beeswarm():
-            query = "SELECT * FROM my_db.main.ml_predictions_explained LIMIT 300"
-            try:
-                return con.execute(query).df()
-            except:
-                return pd.DataFrame() 
-                
-        df_shap_all = get_shap_beeswarm()
-        if not df_shap_all.empty:
-            try:
-                shap_cols = [c for c in df_shap_all.columns if c.startswith('shap_')]
-                melted = pd.melt(df_shap_all, id_vars=['order_id'], value_vars=shap_cols, var_name='feature', value_name='shap_value')
-                melted['feature'] = melted['feature'].str.replace('shap_', '')
-                # Sắp xếp giảm dần để đặc trưng quan trọng nhất nằm trên cùng
-                feature_order = melted.groupby('feature')['shap_value'].apply(lambda x: np.abs(x).mean()).sort_values(ascending=False).index
-                
-                # Biểu đồ cột ngang đơn giản dễ hiểu cho Manager
-                mean_shap = melted.groupby('feature')['shap_value'].apply(lambda x: np.abs(x).mean()).reset_index()
-                mean_shap.columns = ['feature', 'mean_abs_shap']
-                mean_shap = mean_shap.sort_values(by='mean_abs_shap', ascending=True) # Ascending true so Plotly bar chart orders descending bottom-up (meaning highest at the top)
-                
-                fig_bar = px.bar(
-                    mean_shap, 
-                    x='mean_abs_shap', 
-                    y='feature', 
-                    orientation='h',
-                    title="Mức độ Ảnh hưởng Trung bình (Độ quan trọng)",
-                    color='mean_abs_shap',
-                    color_continuous_scale=['#93C5FD', '#2563EB']
-                )
-                fig_bar.update_traces(marker_line_width=0, opacity=0.9)
-                fig_bar.update_layout(xaxis_title="Tác động trung bình lên xác suất trễ hạn", yaxis_title="", coloraxis_showscale=False, margin=dict(t=50, b=20, l=20, r=20))
-                fig_bar = apply_light_theme(fig_bar)
-
-                # Biểu đồ SHAP Beeswarm với gradient màu Công nghệ
-                n_features = len(feature_order)
-                # Đảo ngược chỉ số để đặc trưng quan trọng nhất (index 0 trong feature_order) nằm ở trên cùng (index n_features - 1)
-                feature_to_idx = {feat: (n_features - 1 - i) for i, feat in enumerate(feature_order)}
-                melted['feature_idx'] = melted['feature'].map(feature_to_idx)
-                melted['feature_idx_jitter'] = melted['feature_idx'] + np.random.uniform(-0.25, 0.25, len(melted))
-                
-                fig_fi = px.scatter(melted, x='shap_value', y='feature_idx_jitter', 
-                                  color='shap_value', 
-                                  color_continuous_scale='RdBu_r')
-                
-                fig_fi.update_traces(marker=dict(size=6, opacity=0.8, line=dict(width=0)))
-                fig_fi.add_vline(x=0, line_width=1, line_color="#94A3B8", line_dash="dash")
-                
-                fig_fi.update_layout(
-                    title="SHAP Beeswarm Plot (Phân bố chi tiết tác động)",
-                    xaxis_title="SHAP Value (Tác động lên rủi ro)",
-                    yaxis_title="",
-                    coloraxis_colorbar=dict(title="Tác động", thicknessmode="pixels", thickness=15),
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    margin=dict(t=50, b=20, l=20, r=20),
-                    font_family="'Plus Jakarta Sans', sans-serif",
-                    font_color="#334155"
-                )
-                fig_fi.update_xaxes(showgrid=True, gridcolor="#F1F5F9", linecolor="#E2E8F0")
-                fig_fi.update_yaxes(
-                    tickvals=list(range(n_features)),
-                    ticktext=list(reversed(feature_order)),
-                    showgrid=True, gridwidth=1, gridcolor='#F1F5F9', linecolor="#E2E8F0"
-                )
-                
-                col_fi1, col_fi2 = st.columns(2)
-                with col_fi1:
-                    st.plotly_chart(fig_bar, use_container_width=True)
-                with col_fi2:
-                    st.plotly_chart(fig_fi, use_container_width=True)
-            except Exception as e:
-                import traceback
-                with open("shap_error.log", "w") as f:
-                    f.write(traceback.format_exc())
-                st.error(f"Lỗi khi vẽ biểu đồ SHAP: {str(e)}")
-        else:
-            st.warning("Không tìm thấy dữ liệu ml_predictions_explained.")
-
-    # 4. So sánh rủi ro theo nhóm (Drill-down)
-    with st.container(border=True):
-        st.markdown("<h4>📊 PHÂN TÍCH SO SÁNH RỦI RO THEO NHÓM DỰ ĐOÁN (AI RISK PATTERNS)</h4>", unsafe_allow_html=True)
-        st.markdown("<p class='sub-text' style='font-size:14px; margin-bottom: 20px;'>So sánh tỷ lệ xác suất rủi ro trung bình được dự đoán bởi mô hình AI theo phương thức vận chuyển và khu vực.</p>", unsafe_allow_html=True)
-        
-        fig_ship_risk = px.bar(
-            ship_risk, 
-            x='shipping_mode', 
-            y='avg_risk', 
-            title="Xác suất Rủi ro AI dự đoán theo Shipping Mode (%)", 
-            color='avg_risk', 
-            color_continuous_scale=['#93C5FD', '#2563EB']
-        )
-        fig_ship_risk.update_traces(marker_line_width=0, opacity=0.9, width=0.4)
-        fig_ship_risk.update_layout(xaxis_title="", yaxis_title="", coloraxis_showscale=False, margin=dict(t=50, b=20, l=20, r=20))
-        fig_ship_risk = apply_light_theme(fig_ship_risk)
-        
-        fig_region_risk = px.bar(
-            region_risk, 
-            x='avg_risk', 
-            y='order_region', 
-            orientation='h', 
-            title="Top 10 Khu vực có Rủi ro AI dự đoán cao nhất (%)", 
-            color='avg_risk', 
-            color_continuous_scale=['#C4B5FD', '#7C3AED']
-        )
-        fig_region_risk.update_traces(marker_line_width=0, opacity=0.9)
-        fig_region_risk.update_layout(xaxis_title="", yaxis_title="", yaxis={'categoryorder':'total ascending'}, coloraxis_showscale=False, margin=dict(t=50, b=20, l=20, r=20))
-        fig_region_risk = apply_light_theme(fig_region_risk)
-        
-        col_risk1, col_risk2 = st.columns(2)
-        with col_risk1:
-            st.plotly_chart(fig_ship_risk, use_container_width=True)
-        with col_risk2:
-            st.plotly_chart(fig_region_risk, use_container_width=True)
-
-    # ---------------------------------------------------------
-    # MÔ HÌNH GIẢ LẬP DỰ BÁO ĐƠN HÀNG MỚI
-    # ---------------------------------------------------------
-    with st.container(border=True):
-        st.markdown("<h4>🔮 GIẢ LẬP DỰ BÁO ĐƠN HÀNG MỚI (REAL-TIME PREDICTION SIMULATOR)</h4>", unsafe_allow_html=True)
-        st.markdown("<p class='sub-text' style='font-size:14px; margin-bottom: 20px;'>Nhập các thông số của đơn hàng mới để mô hình AI phân tích và dự báo nguy cơ trễ hạn trực tiếp.</p>", unsafe_allow_html=True)
-        
-        @st.cache_data(ttl=3600)
-        def get_simulator_options():
-            ship_modes = con.execute("SELECT DISTINCT shipping_mode FROM my_db.main.ml_predictions_explained ORDER BY 1").df()['shipping_mode'].tolist()
-            regions = con.execute("SELECT DISTINCT order_region FROM my_db.main.ml_predictions_explained ORDER BY 1").df()['order_region'].tolist()
-            types = con.execute("SELECT DISTINCT order_type FROM my_db.main.ml_predictions_explained ORDER BY 1").df()['order_type'].tolist()
-            segments = con.execute("SELECT DISTINCT customer_segment FROM my_db.main.ml_predictions_explained ORDER BY 1").df()['customer_segment'].tolist()
-            weekdays = sorted(con.execute("SELECT DISTINCT order_weekday FROM my_db.main.ml_predictions_explained").df()['order_weekday'].tolist())
-            months = sorted(con.execute("SELECT DISTINCT order_month FROM my_db.main.ml_predictions_explained").df()['order_month'].tolist())
-            return ship_modes, regions, types, segments, weekdays, months
-
-        ship_modes, regions, types, segments, weekdays, months = get_simulator_options()
-        
-        sim_col1, sim_col2 = st.columns(2)
-        with sim_col1:
-            sim_ship = st.selectbox("Phương thức Vận chuyển", ship_modes, key="sim_ship")
-            sim_region = st.selectbox("Khu vực Giao hàng", regions, key="sim_region")
-            sim_type = st.selectbox("Hình thức Thanh toán (Order Type)", types, key="sim_type")
-            sim_segment = st.selectbox("Phân khúc Khách hàng", segments, key="sim_segment")
-        with sim_col2:
-            sim_days = st.slider("Số ngày giao hàng dự kiến (Scheduled Days)", 0, 10, 4, key="sim_days")
-            sim_month = st.selectbox("Tháng đặt hàng", months, index=0, key="sim_month")
-            sim_weekday = st.selectbox("Thứ đặt hàng", weekdays, index=0, key="sim_weekday")
+        # 4. So sánh rủi ro theo nhóm (Drill-down)
+        with st.container(border=True):
+            st.markdown("<h4>📊 PHÂN TÍCH SO SÁNH RỦI RO THEO NHÓM DỰ ĐOÁN (AI RISK PATTERNS)</h4>", unsafe_allow_html=True)
+            st.markdown("<p class='sub-text' style='font-size:14px; margin-bottom: 20px;'>So sánh tỷ lệ xác suất rủi ro trung bình được dự đoán bởi mô hình AI theo phương thức vận chuyển và khu vực.</p>", unsafe_allow_html=True)
             
-        if st.button("🚀 CHẠY DỰ BÁO RỦI RO", type="primary", use_container_width=True):
-            # Query the closest predictions from database
-            query_exact = f"""
-            SELECT AVG(predicted_probability) as prob
-            FROM my_db.main.ml_predictions_explained
-            WHERE shipping_mode = '{sim_ship}'
-              AND order_region = '{sim_region}'
-              AND order_type = '{sim_type}'
-              AND customer_segment = '{sim_segment}'
-              AND order_month = '{sim_month}'
-            """
-            res_exact = con.execute(query_exact).df()
-            prob = res_exact['prob'].iloc[0] if not res_exact.empty and not pd.isna(res_exact['prob'].iloc[0]) else None
+            fig_ship_risk = px.bar(
+                ship_risk, 
+                x='shipping_mode', 
+                y='avg_risk', 
+                title="Xác suất Rủi ro AI dự đoán theo Shipping Mode (%)", 
+                color='avg_risk', 
+                color_continuous_scale=['#93C5FD', '#2563EB']
+            )
+            fig_ship_risk.update_traces(marker_line_width=0, opacity=0.9, width=0.4)
+            fig_ship_risk.update_layout(xaxis_title="", yaxis_title="", coloraxis_showscale=False, margin=dict(t=50, b=20, l=20, r=20))
+            fig_ship_risk = apply_light_theme(fig_ship_risk)
             
-            if prob is None:
-                # Fallback to shipping mode & region
-                query_fallback = f"""
+            fig_region_risk = px.bar(
+                region_risk, 
+                x='avg_risk', 
+                y='order_region', 
+                orientation='h', 
+                title="Top 10 Khu vực có Rủi ro AI dự đoán cao nhất (%)", 
+                color='avg_risk', 
+                color_continuous_scale=['#C4B5FD', '#7C3AED']
+            )
+            fig_region_risk.update_traces(marker_line_width=0, opacity=0.9)
+            fig_region_risk.update_layout(xaxis_title="", yaxis_title="", yaxis={'categoryorder':'total ascending'}, coloraxis_showscale=False, margin=dict(t=50, b=20, l=20, r=20))
+            fig_region_risk = apply_light_theme(fig_region_risk)
+            
+            col_risk1, col_risk2 = st.columns(2)
+            with col_risk1:
+                st.plotly_chart(fig_ship_risk, use_container_width=True)
+            with col_risk2:
+                st.plotly_chart(fig_region_risk, use_container_width=True)
+
+        # 5. Mô hình giả lập dự báo đơn hàng mới
+        with st.container(border=True):
+            st.markdown("<h4>🔮 GIẢ LẬP DỰ BÁO ĐƠN HÀNG MỚI (REAL-TIME PREDICTION SIMULATOR)</h4>", unsafe_allow_html=True)
+            st.markdown("<p class='sub-text' style='font-size:14px; margin-bottom: 20px;'>Nhập các thông số của đơn hàng mới để mô hình AI phân tích và dự báo nguy cơ trễ hạn trực tiếp.</p>", unsafe_allow_html=True)
+            
+            @st.cache_data(ttl=3600)
+            def get_simulator_options():
+                ship_modes = con.execute("SELECT DISTINCT shipping_mode FROM my_db.main.ml_predictions_explained ORDER BY 1").df()['shipping_mode'].tolist()
+                regions = con.execute("SELECT DISTINCT order_region FROM my_db.main.ml_predictions_explained ORDER BY 1").df()['order_region'].tolist()
+                types = con.execute("SELECT DISTINCT order_type FROM my_db.main.ml_predictions_explained ORDER BY 1").df()['order_type'].tolist()
+                segments = con.execute("SELECT DISTINCT customer_segment FROM my_db.main.ml_predictions_explained ORDER BY 1").df()['customer_segment'].tolist()
+                weekdays = sorted(con.execute("SELECT DISTINCT order_weekday FROM my_db.main.ml_predictions_explained").df()['order_weekday'].tolist())
+                months = sorted(con.execute("SELECT DISTINCT order_month FROM my_db.main.ml_predictions_explained").df()['order_month'].tolist())
+                return ship_modes, regions, types, segments, weekdays, months
+
+            ship_modes, regions, types, segments, weekdays, months = get_simulator_options()
+            
+            sim_col1, sim_col2 = st.columns(2)
+            with sim_col1:
+                sim_ship = st.selectbox("Phương thức Vận chuyển", ship_modes, key="sim_ship")
+                sim_region = st.selectbox("Khu vực Giao hàng", regions, key="sim_region")
+                sim_type = st.selectbox("Hình thức Thanh toán (Order Type)", types, key="sim_type")
+                sim_segment = st.selectbox("Phân khúc Khách hàng", segments, key="sim_segment")
+            with sim_col2:
+                sim_days = st.slider("Số ngày giao hàng dự kiến (Scheduled Days)", 0, 10, 4, key="sim_days")
+                sim_month = st.selectbox("Tháng đặt hàng", months, index=0, key="sim_month")
+                sim_weekday = st.selectbox("Thứ đặt hàng", weekdays, index=0, key="sim_weekday")
+                
+            if st.button("🚀 CHẠY DỰ BÁO RỦI RO", type="primary", use_container_width=True):
+                query_exact = f"""
                 SELECT AVG(predicted_probability) as prob
                 FROM my_db.main.ml_predictions_explained
                 WHERE shipping_mode = '{sim_ship}'
                   AND order_region = '{sim_region}'
+                  AND order_type = '{sim_type}'
+                  AND customer_segment = '{sim_segment}'
+                  AND order_month = '{sim_month}'
                 """
-                res_fb = con.execute(query_fallback).df()
-                prob = res_fb['prob'].iloc[0] if not res_fb.empty and not pd.isna(res_fb['prob'].iloc[0]) else 0.55
-            
-            # Apply heuristic based on scheduled days (if scheduled days are very low, risk is higher)
-            if sim_days <= 1:
-                prob = min(0.99, prob * 1.35)
-            elif sim_days <= 2:
-                prob = min(0.95, prob * 1.20)
-            elif sim_days >= 5:
-                prob = max(0.01, prob * 0.70)
+                res_exact = con.execute(query_exact).df()
+                prob = res_exact['prob'].iloc[0] if not res_exact.empty and not pd.isna(res_exact['prob'].iloc[0]) else None
                 
-            pred_label = 1 if prob >= 0.5 else 0
-            pred_status = "⚠️ NGUY CƠ TRỄ HẠN CAO" if pred_label == 1 else "✅ TIẾN ĐỘ AN TOÀN"
-            pred_color = "#EF4444" if pred_label == 1 else "#10B981"
-            bg_alert = "rgba(239, 68, 68, 0.08)" if pred_label == 1 else "rgba(16, 185, 129, 0.08)"
-            
-            # Display result
-            st.markdown(f"""
-            <div style="background-color: {bg_alert}; border-left: 6px solid {pred_color}; padding: 20px; border-radius: 8px; margin-top: 20px;">
-                <h3 style="color: {pred_color}; margin: 0 0 10px 0; font-weight: 800;">{pred_status}</h3>
-                <p style="margin: 0; font-size: 16px; color: #0F172A; font-weight: 600;">
-                    Xác suất xảy ra rủi ro trễ hạn: <span style="font-size: 22px; color: {pred_color}; font-weight: 800;">{prob*100:.1f}%</span>
-                </p>
-                <p style="margin: 5px 0 0 0; font-size: 13px; color: #475569;">
-                    *Kết quả phân tích dựa trên học máy của mô hình RandomForest Classifier huấn luyện trên tập dữ liệu Supply Chain toàn cầu.*
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
+                if prob is None:
+                    query_fallback = f"""
+                    SELECT AVG(predicted_probability) as prob
+                    FROM my_db.main.ml_predictions_explained
+                    WHERE shipping_mode = '{sim_ship}'
+                      AND order_region = '{sim_region}'
+                    """
+                    res_fb = con.execute(query_fallback).df()
+                    prob = res_fb['prob'].iloc[0] if not res_fb.empty and not pd.isna(res_fb['prob'].iloc[0]) else 0.55
+                
+                if sim_days <= 1:
+                    prob = min(0.99, prob * 1.35)
+                elif sim_days <= 2:
+                    prob = min(0.95, prob * 1.20)
+                elif sim_days >= 5:
+                    prob = max(0.01, prob * 0.70)
+                    
+                pred_label = 1 if prob >= 0.5 else 0
+                pred_status = "⚠️ NGUY CƠ TRỄ HẠN CAO" if pred_label == 1 else "✅ TIẾN ĐỘ AN TOÀN"
+                pred_color = "#EF4444" if pred_label == 1 else "#10B981"
+                bg_alert = "rgba(239, 68, 68, 0.08)" if pred_label == 1 else "rgba(16, 185, 129, 0.08)"
+                
+                st.markdown(f"""
+                <div style="background-color: {bg_alert}; border-left: 6px solid {pred_color}; padding: 20px; border-radius: 8px; margin-top: 20px;">
+                    <h3 style="color: {pred_color}; margin: 0 0 10px 0; font-weight: 800;">{pred_status}</h3>
+                    <p style="margin: 0; font-size: 16px; color: #0F172A; font-weight: 600;">
+                        Xác suất xảy ra rủi ro trễ hạn: <span style="font-size: 22px; color: {pred_color}; font-weight: 800;">{prob*100:.1f}%</span>
+                    </p>
+                    <p style="margin: 5px 0 0 0; font-size: 13px; color: #475569;">
+                        *Kết quả phân tích dựa trên học máy của mô hình RandomForest Classifier huấn luyện trên tập dữ liệu Supply Chain toàn cầu.*
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # Gọi fragment — toàn bộ Module 2 render độc lập, không bị DOM cũ đè
+    render_module2_content()
 
 # ---------------------------------------------------------
 # MODULE 3: GenBI Insight (Text-to-SQL)
