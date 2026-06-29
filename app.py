@@ -195,6 +195,66 @@ st.markdown("""
         font-weight: 700;
         margin-top: 4px;
     }
+    
+    /* ── Header hero (Shared across all modules) ── */
+    .genbi-hero {
+        background: linear-gradient(135deg, #1E3A8A 0%, #312E81 60%, #1E1B4B 100%);
+        border-radius: 20px;
+        padding: 36px 40px;
+        margin-bottom: 28px;
+        position: relative;
+        overflow: hidden;
+    }
+    .genbi-hero::before {
+        content: '';
+        position: absolute;
+        top: -60px; right: -60px;
+        width: 220px; height: 220px;
+        border-radius: 50%;
+        background: rgba(99,102,241,0.18);
+    }
+    .genbi-hero::after {
+        content: '';
+        position: absolute;
+        bottom: -40px; left: 40px;
+        width: 140px; height: 140px;
+        border-radius: 50%;
+        background: rgba(59,130,246,0.12);
+    }
+    .genbi-hero-title {
+        font-size: 32px;
+        font-weight: 800;
+        color: #FFFFFF;
+        letter-spacing: -0.5px;
+        margin: 0 0 6px 0;
+        position: relative; z-index: 1;
+    }
+    .genbi-hero-title span {
+        background: linear-gradient(90deg, #60A5FA, #A78BFA);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .genbi-hero-sub {
+        color: #CBD5E1;
+        font-size: 15px;
+        font-weight: 500;
+        margin: 0;
+        position: relative; z-index: 1;
+    }
+    .genbi-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(99,102,241,0.25);
+        border: 1px solid rgba(99,102,241,0.5);
+        color: #A5B4FC;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 100px;
+        margin-bottom: 16px;
+        position: relative; z-index: 1;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -296,7 +356,7 @@ with st.sidebar:
     # Menu học theo bố cục Sidebar trong hình mẫu (Icon bên trái, thanh viền trái khi chọn)
     menu_selection = option_menu(
         menu_title=None,
-        options=["Tổng quan Vận hành", "Mô hình Dự báo (AI)", "GenBI Insight"],
+        options=["Tổng quan vận hành", "Mô hình dự báo (AI)", "GenBI Insight"],
         icons=["grid-fill", "lightning-charge-fill", "stars"],
         menu_icon="cast",
         default_index=0,
@@ -350,11 +410,16 @@ with st.sidebar:
     st.markdown("<p style='font-size:12px; color:#DBEAFE; padding-left:20px;'>☁️ CONNECTED TO <b>MOTHERDUCK</b><br>⚡ REAL-TIME SYNC</p>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# MODULE 1: OPERATIONS OVERVIEW
+# MODULE 1: OPERATIONS OVERVIEW (TAB 1)
 # ---------------------------------------------------------
-if menu_selection == "Tổng quan Vận hành":
-    st.markdown('<div class="gradient-text">Báo cáo Tổng quan Vận hành</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-text">Theo dõi luồng lưu chuyển hàng hoá toàn cầu với dữ liệu xử lý theo thời gian thực.</div>', unsafe_allow_html=True)
+if menu_selection == "Tổng quan vận hành":
+    st.markdown("""
+    <div class="genbi-hero">
+        <div class="genbi-badge">✦ Operations Hub · Live Data</div>
+        <div class="genbi-hero-title">Báo cáo <span>tổng quan vận hành</span></div>
+        <p class="genbi-hero-sub">Theo dõi luồng lưu chuyển hàng hoá toàn cầu với dữ liệu xử lý theo thời gian thực.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     # Helper function tạo mệnh đề WHERE
     def build_where_clause(y, r, s):
@@ -410,11 +475,9 @@ if menu_selection == "Tổng quan Vận hành":
             return ""
         pct_change = ((curr_val - prev_val) / prev_val) * 100
         
-        # Nếu is_inverse = True (như Rủi ro trễ hạn), Tăng là Xấu (Đỏ), Giảm là Tốt (Xanh)
         is_positive_change = pct_change >= 0
         is_good = not is_positive_change if is_inverse else is_positive_change
         
-        color_class = "positive" if is_good else "negative"
         arrow = "▲" if is_positive_change else "▼"
         color_code = "#10B981" if is_good else "#EF4444"
         
@@ -444,69 +507,78 @@ if menu_selection == "Tổng quan Vận hành":
             st.markdown(render_kpi("RỦI RO TRỄ HẠN", f"{late_curr:.1f}%" if not pd.isna(late_curr) else "0%", "⚠️", "#FEF2F2", "#EF4444", "#7F1D1D", get_delta_html(late_curr, late_prev, is_inverse=True)), unsafe_allow_html=True)
         
     # ---------------------------------------------------------
-    # AI QUICK INSIGHT
+    # TRÍCH XUẤT TRƯỚC DỮ LIỆU ĐỂ PHỤC VỤ BIỂU ĐỒ & AI QUICK INSIGHT
     # ---------------------------------------------------------
-    with st.container(border=True):
-        st.markdown("<h4>🤖 AI Quick Insight</h4>", unsafe_allow_html=True)
-        if st.button("✨ Tóm tắt nhanh bằng AI", key="quick_insight_btn"):
-            from groq import Groq
-            try:
-                quick_context = f"""
-                    Doanh thu: ${rev_curr:,.0f}
-                    Lợi nhuận: ${prof_curr:,.0f}
-                    Tổng đơn hàng: {ord_curr:,.0f}
-                    Tỷ lệ rủi ro trễ hạn: {late_curr:.1f}%
-                """
-                client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-                resp = client.chat.completions.create(
-                    model="openai/gpt-oss-20b",
-                    messages=[
-                        {"role": "system", "content": (
-                            "Bạn là chuyên gia phân tích Supply Chain cấp cao. "
-                            "Dựa vào các chỉ số được cung cấp, hãy đưa ra ĐÚNG 2 câu insight sâu sắc bằng tiếng Việt. "
-                            "KHÔNG được nhắc lại hay diễn giải lại số liệu đã có — chỉ nêu nhận định, rủi ro tiềm ẩn "
-                            "hoặc hành động cụ thể mà nhà quản lý cần chú ý. "
-                            "Ví dụ tốt: 'Tỷ lệ trễ hạn vượt ngưỡng 50% là dấu hiệu chuỗi cung ứng đang quá tải — cần ưu tiên kiểm tra năng lực kho và đối tác vận chuyển.' "
-                            "Tuyệt đối không viết kiểu: 'Doanh thu đạt X triệu, lợi nhuận Y triệu'."
-                        )},
-                        {"role": "user", "content": f"Số liệu vận hành:\n{quick_context}\n\nĐưa ra 2 câu insight chuyên sâu (không nhắc lại số liệu)."},
-                    ],
-                    temperature=0.7,
-                    max_tokens=250,
-                )
-                st.info(resp.choices[0].message.content)
-            except Exception as e:
-                st.error(f"Lỗi gọi AI: {e}")
+    @st.cache_data(ttl=3600)
+    def get_late_by_month(where_c):
+        query = f"""
+        SELECT 
+            order_year || '-' || LPAD(order_month::VARCHAR, 2, '0') as month,
+            SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(order_id) as late_rate
+        FROM vanh_gold.main.stg_supplychain_v2
+        WHERE {where_c}
+        GROUP BY 1 ORDER BY 1
+        """
+        return con.execute(query).df()
+
+    @st.cache_data(ttl=3600)
+    def get_revenue_impact(where_c):
+        query = f"""
+        SELECT 
+            CASE WHEN late_delivery_risk = 1 THEN 'Rủi ro trễ hạn' ELSE 'Đúng tiến độ' END as status,
+            SUM(sales_amount) as revenue
+        FROM vanh_gold.main.stg_supplychain_v2
+        WHERE {where_c}
+        GROUP BY 1
+        """
+        return con.execute(query).df()
+
+    @st.cache_data(ttl=3600)
+    def get_late_by_shipping(where_c):
+        query = f"""
+        SELECT 
+            shipping_mode,
+            SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(order_id) as late_rate
+        FROM vanh_gold.main.stg_supplychain_v2
+        WHERE {where_c}
+        GROUP BY 1 ORDER BY 2 DESC
+        """
+        return con.execute(query).df()
+
+    @st.cache_data(ttl=3600)
+    def get_late_by_country(where_c):
+        query = f"""
+        SELECT 
+            order_country,
+            SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as late_rate
+        FROM vanh_gold.main.stg_supplychain_v2
+        WHERE {where_c}
+        GROUP BY 1 HAVING COUNT(*) > 50 ORDER BY 2 DESC LIMIT 10
+        """
+        return con.execute(query).df()
+
+    df_late_month = get_late_by_month(where_clause)
+    df_rev_impact = get_revenue_impact(where_clause)
+    df_ship = get_late_by_shipping(where_clause)
+    df_country = get_late_by_country(where_clause)
 
     st.write("<br>", unsafe_allow_html=True)
 
+    # ---------------------------------------------------------
+    # RENDER CÁC BIỂU ĐỒ BIỂU DIỄN (Lấy data từ dataframes đã chuẩn bị ở trên)
+    # ---------------------------------------------------------
     col_a, col_b = st.columns([6, 4])
     with col_a:
         with st.container(border=True):
-            @st.cache_data(ttl=3600)
-            def get_late_by_month(where_c):
-                query = f"""
-                SELECT 
-                    order_year || '-' || LPAD(order_month::VARCHAR, 2, '0') as month,
-                    SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(order_id) as late_rate
-                FROM vanh_gold.main.stg_supplychain_v2
-                WHERE {where_c}
-                GROUP BY 1 ORDER BY 1
-                """
-                return con.execute(query).df()
-            
-            df_late_month = get_late_by_month(where_clause)
             if not df_late_month.empty:
                 df_late_month['rolling_avg'] = df_late_month['late_rate'].rolling(window=3, min_periods=1).mean()
                 
                 fig_late_month = go.Figure()
-                # Đường đứt nét (Thực tế)
                 fig_late_month.add_trace(go.Scatter(
                     x=df_late_month['month'], y=df_late_month['late_rate'], 
                     mode='lines', name='Thực tế', 
                     line=dict(color='rgba(79, 70, 229, 0.4)', width=2, dash='dash')
                 ))
-                # Đường bo tròn (Spline) + Đổ bóng Area (Trung bình)
                 fig_late_month.add_trace(go.Scatter(
                     x=df_late_month['month'], y=df_late_month['rolling_avg'], 
                     mode='lines+markers', name='Trung bình 3 tháng', 
@@ -515,7 +587,6 @@ if menu_selection == "Tổng quan Vận hành":
                     marker=dict(size=8, color="#FFFFFF", line=dict(color="#4F46E5", width=2))
                 ))
                 
-                # Tự động zoom khoảng hiển thị của trục Y dựa trên dữ liệu thực tế để thấy rõ biến động
                 y_min = min(df_late_month['late_rate'].min(), df_late_month['rolling_avg'].min())
                 y_max = max(df_late_month['late_rate'].max(), df_late_month['rolling_avg'].max())
                 y_margin = (y_max - y_min) * 0.15 if y_max != y_min else 5
@@ -529,21 +600,7 @@ if menu_selection == "Tổng quan Vận hành":
 
     with col_b:
         with st.container(border=True):
-            @st.cache_data(ttl=3600)
-            def get_revenue_impact(where_c):
-                query = f"""
-                SELECT 
-                    CASE WHEN late_delivery_risk = 1 THEN 'Rủi ro trễ hạn' ELSE 'Đúng tiến độ' END as status,
-                    SUM(sales_amount) as revenue
-                FROM vanh_gold.main.stg_supplychain_v2
-                WHERE {where_c}
-                GROUP BY 1
-                """
-                return con.execute(query).df()
-            
-            df_rev_impact = get_revenue_impact(where_clause)
             if not df_rev_impact.empty:
-                # Tạo Pull (tách lát cắt) cho miếng Rủi ro để làm điểm nhấn 3D
                 pull_values = [0.05 if s == 'Rủi ro trễ hạn' else 0 for s in df_rev_impact['status']]
                 
                 fig_impact = go.Figure(data=[go.Pie(
@@ -564,19 +621,6 @@ if menu_selection == "Tổng quan Vận hành":
     col_c, col_d = st.columns([4, 6])
     with col_c:
         with st.container(border=True):
-            @st.cache_data(ttl=3600)
-            def get_late_by_shipping(where_c):
-                query = f"""
-                SELECT 
-                    shipping_mode,
-                    SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(order_id) as late_rate
-                FROM vanh_gold.main.stg_supplychain_v2
-                WHERE {where_c}
-                GROUP BY 1 ORDER BY 2 DESC
-                """
-                return con.execute(query).df()
-                
-            df_ship = get_late_by_shipping(where_clause)
             if not df_ship.empty:
                 fig_ship = px.bar(df_ship, x='shipping_mode', y='late_rate', title="Rủi ro Vận chuyển (%)", color='late_rate', color_continuous_scale=['#C4B5FD', '#7C3AED'])
                 fig_ship.update_traces(marker_line_width=0, opacity=0.9, width=0.5)
@@ -586,19 +630,6 @@ if menu_selection == "Tổng quan Vận hành":
 
     with col_d:
         with st.container(border=True):
-            @st.cache_data(ttl=3600)
-            def get_late_by_country(where_c):
-                query = f"""
-                SELECT 
-                    order_country,
-                    SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as late_rate
-                FROM vanh_gold.main.stg_supplychain_v2
-                WHERE {where_c}
-                GROUP BY 1 HAVING COUNT(*) > 50 ORDER BY 2 DESC LIMIT 10
-                """
-                return con.execute(query).df()
-                
-            df_country = get_late_by_country(where_clause)
             if not df_country.empty:
                 df_country['order_country'] = df_country['order_country'].replace(country_dict)
                 fig_country = px.bar(df_country, x='late_rate', y='order_country', orientation='h', title="Top 10 Quốc gia Tỷ lệ Trễ cao", color='late_rate', color_continuous_scale=['#93C5FD', '#2563EB'])
@@ -624,7 +655,6 @@ if menu_selection == "Tổng quan Vận hành":
         if not df_map.empty:
             df_map['order_country'] = df_map['order_country'].replace(country_dict)
             
-            # Sử dụng Scatter Geo để hiển thị duy nhất 1 bản đồ thế giới phẳng, không bao giờ lặp lại
             fig_map = px.scatter_geo(
                 df_map, 
                 lat='latitude', 
@@ -654,11 +684,73 @@ if menu_selection == "Tổng quan Vận hành":
         else:
             st.info("Không có dữ liệu hiển thị bản đồ")
 
+        # =========================================================================
+        # AI QUICK INSIGHT
+        # =========================================================================
+        @st.fragment
+        def render_ai_insight_bottom():
+            with st.container(border=True):
+                st.markdown("<h4>🤖 AI Quick Insight</h4>", unsafe_allow_html=True)
+            
+                month_txt = df_late_month.to_string(index=False) if not df_late_month.empty else "N/A"
+                ship_txt = df_ship.to_string(index=False) if not df_ship.empty else "N/A"
+            
+                df_country_view = df_country.copy() if not df_country.empty else pd.DataFrame()
+                if not df_country_view.empty:
+                    df_country_view['order_country'] = df_country_view['order_country'].replace(country_dict)
+                country_txt = df_country_view.to_string(index=False) if not df_country_view.empty else "N/A"
+
+                quick_context = f"""
+                * KPIs: Doanh thu ${rev_curr:,.0f}, Lợi nhuận ${prof_curr:,.0f}, Tổng đơn {ord_curr:,.0f}, Tỷ lệ trễ {late_curr:.1f}%
+                * Xu hướng trễ hạn qua các tháng:\n{month_txt}
+                * Tỷ lệ trễ theo phương thức vận chuyển:\n{ship_txt}
+                * Top quốc gia trễ hạn nghiêm trọng:\n{country_txt}
+                """
+
+                with st.spinner("⚡ AI đang tự động tổng hợp dữ liệu và trích xuất Insight..."):
+                    from groq import Groq
+                    try:
+                        client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+                        resp = client.chat.completions.create(
+                            model="llama-3.1-8b-instant", 
+                            messages=[
+                                {
+                                    "role": "system", 
+                                    "content": (
+                                        "Bạn là Giám đốc Phân tích Chuỗi cung ứng cấp cao. Nhiệm vụ của bạn là đưa ra ĐÚNG 3 Insight chuyên sâu bằng tiếng Việt.\n\n"
+                                        "QUY TẮC ĐẶT TIÊU ĐỀ (BẮT BUỘC NHƯ HÌNH 2):\n"
+                                        "- Tiêu đề phải bắt đầu bằng '### Insight 1:', '### Insight 2:', '### Insight 3:'.\n"
+                                        "- Tên tiêu đề phải chỉ thẳng vào BẢN CHẤT HOẶC ĐIỂM NGHẼN LỚN NHẤT, không viết chung chung kiểu 'ảnh hưởng đến...' hay 'xu hướng theo...'.\n"
+                                        "  * Ví dụ tốt: '### Insight 2: Phương thức vận chuyển First Class là nguồn cơn chính của trễ hạn'\n"
+                                        "  * Ví dụ xấu: '### Insight 2: Phương thức vận chuyển ảnh hưởng đến tỷ lệ trễ hạn'\n\n"
+                                        "QUY TẮC VIẾT NỘI DUNG (GẠCH ĐẦU DÒNG & ĐẮT GIÁ):\n"
+                                        "- Dưới mỗi insight, chỉ viết từ 2 đến 3 gạch đầu dòng ngắn gọn.\n"
+                                        "- Gạch đầu dòng đầu tiên: Đưa ra nhận định tổng quan kèm THEO ĐÚNG 1 ĐẾN 2 CON SỐ ĐẮT GIÁ NHẤT (ví dụ: con số cao nhất, hoặc mức tăng mạnh nhất) để làm dẫn chứng. TUYỆT ĐỐI KHÔNG LIỆT KÊ TOÀN BỘ DANH SÁCH số liệu thô.\n"
+                                        "- Gạch đầu dòng tiếp theo: Đưa ra lý giải logic hoặc gợi ý hành động thực tế dựa trên điểm nghẽn đó."
+                                    )
+                                },
+                                {
+                                    "role": "user", 
+                                    "content": (
+                                        f"Dựa trên dữ liệu chuỗi cung ứng sau đây:\n{quick_context}\n\n"
+                                        "Hãy viết 3 Insight sắc bén, giật các tiêu đề trực diện vào điểm nghẽn và đưa số liệu dẫn chứng tinh gọn theo đúng quy tắc."
+                                    )
+                                },
+                            ],
+                            temperature=0.15, # Giữ độ ổn định cao, tránh sáng tạo lung tung
+                            max_tokens=800,
+                        )
+                        st.info(resp.choices[0].message.content)
+                    except Exception as e:
+                        st.error(f"Lỗi gọi AI Quick Insight tự động: {e}")
+
+        # Gọi hàm để thực thi dưới cùng trang
+        render_ai_insight_bottom()
 
 # ---------------------------------------------------------
-# MODULE 2: AI & SHAP (CỰC KỲ ĐẸP & CÔNG NGHỆ)
+# MODULE 2: AI & SHAP 
 # ---------------------------------------------------------
-elif menu_selection == "Mô hình Dự báo (AI)":
+elif menu_selection == "Mô hình dự báo (AI)":
 
     @st.cache_data(ttl=3600)
     def get_ai_summary_stats():
@@ -720,8 +812,13 @@ elif menu_selection == "Mô hình Dự báo (AI)":
     def render_module2_content():
         risk_count, sales_risk, auc_val, top_risky_df, ship_risk, region_risk = get_ai_summary_stats()
 
-        st.markdown('<div class="gradient-text">Mô hình Phân tích rủi ro bằng Trí tuệ Nhân tạo</div>', unsafe_allow_html=True)
-        st.markdown('<div class="sub-text">Giải mã thuật toán Machine Learning - Ứng dụng công nghệ SHAP để giải thích các quyết định dự báo rủi ro.</div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="genbi-hero">
+            <div class="genbi-badge">✦ AI Predictive Model · SHAP</div>
+            <div class="genbi-hero-title">Dự báo rủi ro bằng <span>trí tuệ nhân tạo</span></div>
+            <p class="genbi-hero-sub">Giải mã thuật toán Machine Learning - Ứng dụng công nghệ SHAP để giải thích các quyết định dự báo rủi ro.</p>
+        </div>
+        """, unsafe_allow_html=True)
 
         # 1. KPI cards ở đầu trang AI
         with st.container(border=True):
@@ -1002,9 +1099,62 @@ elif menu_selection == "Mô hình Dự báo (AI)":
                 </div>
                 """, unsafe_allow_html=True)
 
-    # Gọi fragment — toàn bộ Module 2 render độc lập, không bị DOM cũ đè
-    render_module2_content()
+        # ─── AI Quick Insight ───
+        with st.container(border=True):
+            st.markdown("<h4>🤖 AI Quick Insight</h4>", unsafe_allow_html=True)
+            
+            top_risky_txt = top_risky_df[['Order ID', 'Xác suất rủi ro', 'Doanh thu']].head(3).to_string(index=False) if not top_risky_df.empty else "N/A"
+            ship_risk_txt = ship_risk.to_string(index=False) if not ship_risk.empty else "N/A"
+            region_risk_txt = region_risk.to_string(index=False) if not region_risk.empty else "N/A"
 
+            ai_model_context = f"""
+            * Chỉ số mô hình: Đơn rủi ro cao={risk_count}, Giá trị đe dọa=${sales_risk:,.0f}, AUC={auc_val:.3f}
+            * Top đơn hàng nguy cơ cao nhất hệ thống:\n{top_risky_txt}
+            * Mức độ rủi ro trung bình theo Phương thức vận chuyển:\n{ship_risk_txt}
+            * Mức độ rủi ro trung bình theo Khu vực:\n{region_risk_txt}
+            """
+
+            with st.spinner("⚡ AI đang tự động tổng hợp dữ liệu và trích xuất Insight..."):
+                from groq import Groq
+                try:
+                    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+                    resp = client.chat.completions.create(
+                        model="llama-3.1-8b-instant",
+                        messages=[
+                            {
+                                "role": "system", 
+                                "content": (
+                                    "Bạn là Chuyên gia Khoa học Dữ liệu Chuỗi cung ứng cấp cao.\n"
+                                    "Nhiệm vụ của bạn là đưa ra ĐÚNG 3 Insight dự báo rủi ro chuyên sâu bằng tiếng Việt.\n\n"
+                                    "QUY TẮC ĐẶT TIÊU ĐỀ (BẮT BUỘC):\n"
+                                    "- Tiêu đề phải bắt đầu bằng '### Insight 1:', '### Insight 2:', '### Insight 3:'.\n"
+                                    "- Tên tiêu đề phải giật trực diện, chỉ thẳng vào BẢN CHẤT HOẶC ĐIỂM NGHẼN rủi ro lớn nhất từ mô hình AI, không viết chung chung.\n"
+                                    "  * Ví dụ tốt: '### Insight 2: Phương thức vận chuyển First Class là nguồn cơn chính gây trễ hạn'\n"
+                                    "  * Ví dụ xấu: '### Insight 2: Phân tích mức độ rủi ro theo các phương thức vận chuyển'\n\n"
+                                    "QUY TẮC VIẾT NỘI DUNG (GẠCH ĐẦU DÒNG & ĐẮT GIÁ):\n"
+                                    "- Dưới mỗi insight, chỉ viết từ 2 đến 3 gạch đầu dòng ngắn gọn.\n"
+                                    "- Gạch đầu dòng đầu tiên: Đưa ra nhận định tổng quan kèm THEO ĐÚNG 1 ĐẾN 2 CON SỐ ĐẮT GIÁ NHẤT từ dữ liệu (ví dụ: số đơn hàng bị đe dọa, giá trị tổn thất cao nhất hoặc khu vực có phần trăm rủi ro lớn nhất) để làm dẫn chứng thuyết phục. TUYỆT ĐỐI KHÔNG LIỆT KÊ TOÀN BỘ DANH SÁCH số liệu thô.\n"
+                                    "- Gạch đầu dòng tiếp theo: Đề xuất giải pháp ứng phó hoặc giảm thiểu rủi ro (Risk Mitigation) chủ động dựa trên điểm nghẽn đó."
+                                )
+                            },
+                            {
+                                "role": "user", 
+                                "content": (
+                                    f"Dựa trên dữ liệu phân tích dự báo AI sau đây:\n{ai_model_context}\n\n"
+                                    "Hãy viết 3 bài phân tích Insight theo đúng quy tắc đặt tiêu đề trực diện vào điểm nghẽn và định dạng gạch đầu dòng kèm số liệu đắt giá."
+                                )
+                            },
+                        ],
+                        temperature=0.15, 
+                        max_tokens=800,    
+                    )
+                    st.info(resp.choices[0].message.content)
+                except Exception as e:
+                    st.error(f"Lỗi gọi AI Quick Insight tự động: {e}")
+
+    # Gọi fragment
+    render_module2_content()
+    
 # ---------------------------------------------------------
 # MODULE 3: GenBI Insight (Text-to-SQL)
 # ---------------------------------------------------------
@@ -1015,66 +1165,6 @@ elif menu_selection == "GenBI Insight":
     # ── CSS riêng cho GenBI ──────────────────────────────────
     st.markdown("""
     <style>
-    /* ── Header hero ── */
-    .genbi-hero {
-        background: linear-gradient(135deg, #1E3A8A 0%, #312E81 60%, #1E1B4B 100%);
-        border-radius: 20px;
-        padding: 36px 40px;
-        margin-bottom: 28px;
-        position: relative;
-        overflow: hidden;
-    }
-    .genbi-hero::before {
-        content: '';
-        position: absolute;
-        top: -60px; right: -60px;
-        width: 220px; height: 220px;
-        border-radius: 50%;
-        background: rgba(99,102,241,0.18);
-    }
-    .genbi-hero::after {
-        content: '';
-        position: absolute;
-        bottom: -40px; left: 40px;
-        width: 140px; height: 140px;
-        border-radius: 50%;
-        background: rgba(59,130,246,0.12);
-    }
-    .genbi-hero-title {
-        font-size: 32px;
-        font-weight: 800;
-        color: #FFFFFF;
-        letter-spacing: -0.5px;
-        margin: 0 0 6px 0;
-        position: relative; z-index: 1;
-    }
-    .genbi-hero-title span {
-        background: linear-gradient(90deg, #60A5FA, #A78BFA);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-    .genbi-hero-sub {
-        color: #CBD5E1;
-        font-size: 15px;
-        font-weight: 500;
-        margin: 0;
-        position: relative; z-index: 1;
-    }
-    .genbi-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background: rgba(99,102,241,0.25);
-        border: 1px solid rgba(99,102,241,0.5);
-        color: #A5B4FC;
-        font-size: 12px;
-        font-weight: 700;
-        padding: 4px 12px;
-        border-radius: 100px;
-        margin-bottom: 16px;
-        position: relative; z-index: 1;
-    }
-
     /* ── Suggestion pills ── */
     .pill-grid {
         display: flex;
@@ -1274,7 +1364,7 @@ elif menu_selection == "GenBI Insight":
     st.markdown("""
     <div class="genbi-hero">
         <div class="genbi-badge">✦ Powered by Groq · LLM</div>
-        <div class="genbi-hero-title">GenBI — <span>Trợ lý phân tích</span></div>
+        <div class="genbi-hero-title">GenBI - <span>Trợ lý phân tích</span></div>
         <p class="genbi-hero-sub">AI tự sinh câu truy vấn SQL theo câu hỏi của bạn, chạy thật trên dữ liệu, rồi diễn giải kết quả bằng ngôn ngữ tự nhiên.</p>
     </div>
     """, unsafe_allow_html=True)
