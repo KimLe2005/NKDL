@@ -1,1722 +1,2118 @@
-import streamlit as st
+import html
+import re
+
 import duckdb
-import pandas as pd
 import numpy as np
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from streamlit_option_menu import option_menu
+import streamlit as st
 
-# Cấu hình trang - Phải luôn ở đầu
-st.set_page_config(page_title="AI Supply Chain Hub", page_icon="🔮", layout="wide", initial_sidebar_state="expanded")
 
-# CSS Cao cấp - Giao diện Sáng Công nghệ (Premium Light Tech / SaaS) với tông Xanh Tím và Chữ Nổi Bật
-st.markdown("""
+st.set_page_config(
+    page_title="Trung tâm điều hành chuỗi cung ứng DataCo",
+    page_icon="SC",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+
+st.markdown(
+    """
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
-    html, body, [class*="css"]  {
-        font-family: 'Plus Jakarta Sans', sans-serif !important;
+html, body, [class*="css"] {
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+.stApp {
+    background: #F6F7F9;
+    color: #111827;
+}
+[data-testid="stSidebar"] {
+    background: #0F1E36;
+}
+[data-testid="stSidebar"] * {
+    color: #F8FAFC !important;
+}
+[data-testid="stSidebar"] label p {
+    color: #93C5FD !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+[data-testid="stSidebar"] div[data-baseweb="select"] {
+    background: #FFFFFF !important;
+    border: 1px solid rgba(255,255,255,0.38) !important;
+    border-radius: 8px !important;
+}
+[data-testid="stSidebar"] div[data-baseweb="select"] * {
+    color: #111827 !important;
+}
+[data-testid="stSidebar"] [data-testid="stSelectbox"] svg {
+    fill: #111827 !important;
+}
+[data-testid="stVerticalBlockBorderWrapper"] {
+    border-radius: 8px !important;
+    background: #FFFFFF !important;
+    border: 1px solid #E5E7EB !important;
+    box-shadow: none !important;
+    padding: 18px !important;
+}
+h1, h2, h3, h4 {
+    letter-spacing: 0 !important;
+}
+h4 {
+    color: #111827 !important;
+    font-weight: 800 !important;
+}
+.topbar {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-left: 5px solid #1E40AF;
+    border-radius: 8px;
+    padding: 22px 24px;
+    margin: 12px 0 18px 0;
+}
+.topbar-kicker {
+    color: #1E40AF;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+.topbar-title {
+    font-size: 30px;
+    line-height: 1.15;
+    font-weight: 800;
+    color: #111827;
+    margin: 0 0 6px 0;
+}
+.topbar-sub {
+    color: #4B5563;
+    font-size: 15px;
+    line-height: 1.5;
+    margin: 0;
+}
+.crisis-panel {
+    background: linear-gradient(135deg, #7F1D1D 0%, #B91C1C 56%, #DC2626 100%);
+    color: #FFFFFF;
+    border-radius: 10px;
+    padding: 24px 26px;
+    margin: 12px 0 16px 0;
+    border: 1px solid rgba(127, 29, 29, 0.35);
+}
+.crisis-kicker {
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #FEE2E2;
+    margin-bottom: 8px;
+}
+.crisis-title {
+    font-size: 38px;
+    line-height: 1.05;
+    font-weight: 900;
+    margin: 0 0 10px 0;
+}
+.crisis-copy {
+    font-size: 15px;
+    line-height: 1.5;
+    color: #FEE2E2;
+    max-width: 1060px;
+    margin: 0;
+}
+.crisis-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 18px;
+}
+.crisis-metric {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.24);
+    border-radius: 8px;
+    padding: 13px 14px;
+}
+.crisis-metric b {
+    display: block;
+    font-size: 22px;
+    color: #FFFFFF;
+    margin-bottom: 4px;
+}
+.crisis-metric span {
+    display: block;
+    font-size: 12px;
+    color: #FEE2E2;
+}
+.theory-ribbon {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0 0 18px 0;
+}
+.theory-pill {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 12px;
+    min-height: 74px;
+}
+.theory-pill b {
+    display: block;
+    color: #111827;
+    font-size: 13px;
+    margin-bottom: 4px;
+}
+.theory-pill span {
+    display: block;
+    color: #6B7280;
+    font-size: 12px;
+    line-height: 1.35;
+}
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 26px 0 12px 0;
+}
+.section-step {
+    width: 42px;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #111827;
+    color: #FFFFFF;
+    border-radius: 999px;
+    font-size: 20px;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+.section-title h3 {
+    color: #111827;
+    font-size: 22px;
+    font-weight: 800;
+    margin: 0;
+    line-height: 1.15;
+}
+.section-title p {
+    color: #6B7280;
+    font-size: 13.5px;
+    margin: 1px 0 0 0;
+    line-height: 1.25;
+}
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 10px;
+    margin: 10px 0 12px 0;
+}
+.kpi {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 15px 14px;
+    min-height: 124px;
+}
+.kpi .label {
+    color: #6B7280;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 9px;
+}
+.kpi .value {
+    color: #111827;
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 8px;
+}
+.kpi .note {
+    color: #6B7280;
+    font-size: 12px;
+    line-height: 1.35;
+}
+.kpi.red { border-left: 4px solid #DC2626; }
+.kpi.amber { border-left: 4px solid #D97706; }
+.kpi.green { border-left: 4px solid #10B981; }
+.kpi.blue { border-left: 4px solid #2563EB; }
+.manager-card {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 18px;
+    min-height: 178px;
+}
+.manager-card.critical {
+    border-left: 5px solid #DC2626;
+    background: #FFF7F7;
+}
+.manager-card.warning {
+    border-left: 5px solid #D97706;
+    background: #FFFBEB;
+}
+.manager-card.good {
+    border-left: 5px solid #10B981;
+    background: #F0FDFA;
+}
+.card-kicker {
+    color: #6B7280;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 9px;
+}
+.card-title {
+    color: #111827;
+    font-size: 20px;
+    line-height: 1.2;
+    font-weight: 800;
+    margin-bottom: 8px;
+}
+.card-copy {
+    color: #374151;
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0;
+}
+.process-line {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+.process-node {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 14px;
+}
+.process-node b {
+    color: #111827;
+    display: block;
+    font-size: 14px;
+    margin-bottom: 6px;
+}
+.process-node span {
+    color: #4B5563;
+    display: block;
+    font-size: 12px;
+    line-height: 1.4;
+}
+.alert-row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 10px;
+    border-bottom: 1px solid #EEF2F7;
+    padding: 12px 0;
+    align-items: center;
+}
+.alert-row .tag {
+    width: 110px;
+    display: inline-flex;
+    justify-content: center;
+    text-align: center;
+    box-sizing: border-box;
+}
+.alert-row:last-child {
+    border-bottom: 0;
+}
+.tag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 4px 9px;
+}
+.tag.red { background: #FEE2E2; color: #991B1B; }
+.tag.amber { background: #FEF3C7; color: #92400E; }
+.tag.green { background: #D1FAE5; color: #065F46; }
+.action-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+.action-card {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    padding: 16px;
+    min-height: 168px;
+}
+.action-card b {
+    display: block;
+    color: #111827;
+    font-size: 15px;
+    margin-bottom: 7px;
+}
+.action-card span {
+    display: block;
+    color: #4B5563;
+    font-size: 13px;
+    line-height: 1.45;
+}
+.work-order {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 18px 20px 18px 72px;   /* chừa chỗ cho số thứ tự bên trái */
+    margin-bottom: 14px;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.work-order::before {
+    content: attr(data-rank);        /* truyền rank="1" vào HTML */
+    position: absolute;
+    left: 18px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 28px;
+    font-weight: 900;
+    color: #E5E7EB;
+    line-height: 1;
+}
+/* Màu viền trái theo thứ tự */
+.work-order[data-rank="1"] { border-left: 5px solid #DC2626; }
+.work-order[data-rank="2"] { border-left: 5px solid #D97706; }
+.work-order[data-rank="3"] { border-left: 5px solid #2563EB; }
+.genbi-panel {
+    background: #111827;
+    border-radius: 8px;
+    padding: 18px;
+    margin-top: 6px;
+}
+.genbi-panel h4 {
+    color: #FFFFFF !important;
+    margin: 0 0 8px 0 !important;
+}
+.genbi-panel p {
+    color: #CBD5E1;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.45;
+}
+.sidebar-title {
+    padding: 22px 8px 14px 8px;
+}
+.sidebar-title h2 {
+    color: #FFFFFF;
+    font-size: 20px;
+    line-height: 1.15;
+    font-weight: 800;
+    margin: 0 0 6px 0;
+}
+.sidebar-title p {
+    color: #93C5FD;
+    font-size: 12px;
+    line-height: 1.35;
+    margin: 0;
+}
+@media (max-width: 1200px) {
+    .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .theory-ribbon { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+    .kpi-grid, .theory-ribbon, .process-line, .action-list, .crisis-metrics {
+        grid-template-columns: 1fr;
     }
-    
-    /* Giao diện nền sáng công nghệ tinh tế */
-    .stApp {
-        background-color: #F8FAFC !important;
-        color: #0F172A !important;
+    .alert-row {
+        grid-template-columns: 1fr;
     }
-
-    /* Gradient chữ nổi bật cho Tiêu đề (Xanh biển sang Tím) */
-    .gradient-text {
-        background: linear-gradient(135deg, #2563EB 0%, #7C3AED 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 800;
-        font-size: 36px;
-        margin-bottom: 5px;
-        letter-spacing: -0.5px;
-    }
-    .sub-text {
-        color: #475569;
-        font-weight: 500;
-        font-size: 16px;
-        margin-bottom: 30px;
-    }
-
-    /* Thiết kế thẻ KPI & Chart Container nổi bật trên nền sáng */
-    [data-testid="stVerticalBlockBorderWrapper"] {
-        border-radius: 16px !important;
-        background-color: #FFFFFF !important;
-        border: 1px solid #E2E8F0 !important;
-        box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.08) !important;
-        padding: 24px !important;
-        transition: all 0.3s ease;
-    }
-    [data-testid="stVerticalBlockBorderWrapper"]:hover {
-        border: 1px solid #3B82F6 !important;
-        box-shadow: 0 12px 30px -5px rgba(59, 130, 246, 0.15) !important;
-        transform: translateY(-2px);
-    }
-    
-    /* Chỉnh chữ trong Metric */
-    [data-testid="stMetricValue"] {
-        font-size: 34px !important;
-        font-weight: 800 !important;
-        color: #0F172A !important;
-        letter-spacing: -1px;
-    }
-    [data-testid="stMetricLabel"] {
-        font-size: 14px !important;
-        font-weight: 700 !important;
-        color: #475569 !important;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    /* Ẩn viền thừa của Streamlit */
-    hr {
-        border-color: #E2E8F0 !important;
-    }
-    
-    /* Tinh chỉnh tiêu đề h4 bên trong các khối cực kỳ nổi bật */
-    h4 {
-        color: #0F172A !important;
-        font-weight: 800 !important;
-        font-size: 18px !important;
-        letter-spacing: -0.3px;
-        margin-top: 0px !important;
-        margin-bottom: 15px !important;
-    }
-    
-    /* Sidebar nền xanh dương đậm, chữ trắng */
-    [data-testid="stSidebar"] {
-        background-color: #1E3A8A !important;
-    }
-    [data-testid="stSidebar"] iframe,
-    iframe[title="streamlit_option_menu.option_menu"] {
-        background-color: transparent !important;
-        background: transparent !important;
-    }
-    [data-testid="stSidebar"] label p, 
-    [data-testid="stSidebar"] .stMarkdown p,
-    [data-testid="stSidebar"] h4 {
-        color: #FFFFFF !important;
-        font-weight: 600;
-    }
-    [data-testid="stSidebar"] hr {
-        border-color: rgba(255,255,255,0.3) !important;
-    }
-    
-    /* Hộp bộ lọc nổi bật trong sidebar */
-    [data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] {
-        background-color: #0F172A !important;
-        border: 2px solid #3B82F6 !important;
-        border-radius: 16px !important;
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3) !important;
-        padding: 20px !important;
-    }
-    /* Chữ tiêu đề của Hộp Bộ lọc */
-    [data-testid="stSidebar"] [data-testid="stVerticalBlockBorderWrapper"] h4 {
-        color: #3B82F6 !important;
-        font-weight: 800 !important;
-        letter-spacing: 0.5px;
-    }
-    /* Chữ label của Selectbox trong Sidebar sáng lên và đẹp mắt */
-    [data-testid="stSidebar"] label p {
-        color: #93C5FD !important;
-        font-weight: 700 !important;
-        font-size: 13px !important;
-        margin-bottom: 6px !important;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    /* Style cho selectbox widget trong Sidebar để đồng bộ và nổi bật */
-    [data-testid="stSidebar"] div[data-baseweb="select"] {
-        background-color: #1E3A8A !important;
-        border: 2px solid #2563EB !important;
-        border-radius: 8px !important;
-    }
-    [data-testid="stSidebar"] div[data-baseweb="select"] * {
-        color: #FFFFFF !important;
-        background-color: transparent !important;
-    }
-    [data-testid="stSidebar"] div[data-baseweb="select"]:hover {
-        border-color: #3B82F6 !important;
-    }
-    /* KPI Cards Pastel Design */
-    .kpi-card {
-        border-radius: 12px;
-        padding: 20px;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        gap: 20px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        margin-bottom: 12px !important;
-        transition: all 0.3s ease;
-    }
-    .kpi-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    }
-    .kpi-info {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-    }
-    .kpi-title {
-        font-size: 13px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 4px;
-        opacity: 0.9;
-    }
-    .kpi-value {
-        font-size: 20px;
-        font-weight: 800;
-        line-height: 1.2;
-    }
-    .kpi-title {
-        font-size: 11px !important;
-    }
-    .kpi-icon {
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        background-color: #FFFFFF;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-size: 24px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        flex-shrink: 0;
-    }
-    .kpi-delta {
-        font-size: 12px;
-        font-weight: 700;
-        margin-top: 4px;
-    }
-    
-    /* ── Header hero (Shared across all modules) ── */
-    .genbi-hero {
-        background: linear-gradient(135deg, #1E3A8A 0%, #312E81 60%, #1E1B4B 100%);
-        border-radius: 20px;
-        padding: 36px 40px;
-        margin-bottom: 28px;
-        position: relative;
-        overflow: hidden;
-    }
-    .genbi-hero::before {
-        content: '';
-        position: absolute;
-        top: -60px; right: -60px;
-        width: 220px; height: 220px;
-        border-radius: 50%;
-        background: rgba(99,102,241,0.18);
-    }
-    .genbi-hero::after {
-        content: '';
-        position: absolute;
-        bottom: -40px; left: 40px;
-        width: 140px; height: 140px;
-        border-radius: 50%;
-        background: rgba(59,130,246,0.12);
-    }
-    .genbi-hero-title {
-        font-size: 32px;
-        font-weight: 800;
-        color: #FFFFFF;
-        letter-spacing: -0.5px;
-        margin: 0 0 6px 0;
-        position: relative; z-index: 1;
-    }
-    .genbi-hero-title span {
-        background: linear-gradient(90deg, #60A5FA, #A78BFA);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-    .genbi-hero-sub {
-        color: #CBD5E1;
-        font-size: 15px;
-        font-weight: 500;
-        margin: 0;
-        position: relative; z-index: 1;
-    }
-    .genbi-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background: rgba(99,102,241,0.25);
-        border: 1px solid rgba(99,102,241,0.5);
-        color: #A5B4FC;
-        font-size: 12px;
-        font-weight: 700;
-        padding: 4px 12px;
-        border-radius: 100px;
-        margin-bottom: 16px;
-        position: relative; z-index: 1;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Hàm render KPI Card Light Pastel
-def render_kpi(title, value, icon, bg_color, border_color, text_color, delta_html=""):
-    delta_str = f'<div class="kpi-delta">{delta_html}</div>' if delta_html else ''
-    return f"""<div class="kpi-card" style="background: {bg_color}; border-left: 5px solid {border_color};">
-<div class="kpi-icon" style="color: {text_color};">{icon}</div>
-<div class="kpi-info">
-<div class="kpi-title" style="color: {text_color};">{title}</div>
-<div class="kpi-value" style="color: {text_color};">{value}</div>
-{delta_str}
-</div>
-</div>"""
-
-country_dict = {
-    'Egipto': 'Ai Cập (Egypt)', 
-    'Camboya': 'Campuchia (Cambodia)', 
-    'Suecia': 'Thụy Điển (Sweden)', 
-    'Costa de Marfil': "Bờ Biển Ngà (Ivory Coast)",
-    'Francia': 'Pháp (France)', 
-    'Alemania': 'Đức (Germany)', 
-    'Brasil': 'Brazil', 
-    'España': 'Tây Ban Nha (Spain)',
-    'Italia': 'Ý (Italy)', 
-    'Reino Unido': 'Anh (United Kingdom)', 
-    'Estados Unidos': 'Mỹ (United States)',
-    'Japon': 'Nhật Bản (Japan)', 
-    'Japón': 'Nhật Bản (Japan)', 
-    'Corea del Sur': 'Hàn Quốc (South Korea)', 
-    'Nueva Zelanda': 'New Zealand',
-    'Paises Bajos': 'Hà Lan (Netherlands)', 
-    'Filipinas': 'Philippines', 
-    'Marruecos': 'Morocco',
-    'Argelia': 'Algeria', 
-    'Republica Dominicana': 'Dominican Republic', 
-    'Sudafrica': 'South Africa',
-    'Turquia': 'Thổ Nhĩ Kỳ (Turkey)', 
-    'Suiza': 'Thụy Sĩ (Switzerland)', 
-    'Rusia': 'Nga (Russia)', 
-    'Belgica': 'Bỉ (Belgium)',
-    'Malasia': 'Malaysia', 
-    'Singapur': 'Singapore', 
-    'Tailandia': 'Thái Lan (Thailand)', 
-    'Vietnam': 'Việt Nam',
-    'Australia': 'Úc (Australia)', 
-    'Canadá': 'Canada', 
-    'México': 'Mexico', 
-    'India': 'Ấn Độ (India)', 
-    'China': 'Trung Quốc (China)'
 }
 
+.alert-card-full {
+    min-height: auto;
+}
+
+/* Toast alert styling */
+/* --- CSS HIỆU ỨNG MODAL THÔNG BÁO CHÍNH GIỮA DASHBOARD --- */
+@keyframes modalFadeIn {
+    0% { opacity: 0; transform: scale(0.95); }
+    100% { opacity: 1; transform: scale(1); }
+}
+@keyframes backdropFadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+@keyframes modalFadeOut {
+    0% { opacity: 1; transform: scale(1); }
+    90% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.95); visibility: hidden; }
+}
+@keyframes backdropFadeOut {
+    0% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { opacity: 0; visibility: hidden; }
+}
+
+/* Lớp nền đen mờ khóa tương tác toàn bộ Dashboard */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(15, 23, 42, 0.45); /* Nền tối mịn sang trọng */
+    backdrop-filter: blur(4px); /* Hiệu ứng mờ backdrop-blur-sm */
+    z-index: 99999; /* Đảm bảo nổi lên trên mọi thành phần dashboard */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: backdropFadeIn 0.3s ease-out forwards, backdropFadeOut 0.3s ease-in 2.7s forwards;
+}
+
+/* Hộp thông báo Box trắng bo góc cao cấp đổ bóngshadow-2xl */
+.modal-box {
+    position: relative;
+    background: #FFFFFF;
+    border-radius: 16px;
+    padding: 32px 40px;
+    max-width: 450px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); /* shadow-2xl */
+    border: 1px solid #E2E8F0;
+    animation: modalFadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards, modalFadeOut 0.3s ease-in 2.7s forwards;
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 14px;
+    right: 20px;
+    font-size: 26px;
+    font-weight: bold;
+    color: #94A3B8;
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.15s ease-in-out;
+    user-select: none;
+}
+.modal-close-btn:hover {
+    color: #475569;
+}
+
+/* Vòng tròn tích Xanh lá cây ở trên cùng (bg-emerald-50 text-emerald-500) */
+.modal-icon-circle {
+    width: 64px;
+    height: 64px;
+    background-color: #ECFDF5; /* bg-emerald-50 */
+    color: #10B981; /* text-emerald-500 */
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: bold;
+    margin: 0 auto 18px auto;
+}
+
+/* Tiêu đề chữ to, màu xanh dương đậm thương hiệu uy tín */
+.modal-title {
+    color: #1E40AF; /* Màu xanh dương đậm uy tín */
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 10px;
+    letter-spacing: -0.02em;
+}
+
+/* Nội dung thông báo */
+.modal-text {
+    color: #475569;
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0;
+}
+
+@media (max-width: 768px) {
+    .center-toast {
+        left: 50%;
+    }
+}
+
+/* Style all buttons inside the history container as links */
+div:has(> div > .history-section-marker) button,
+div[data-testid="stExpander"]:has(.history-section-marker) button {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #111827 !important;
+    text-decoration: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    width: auto !important;
+    cursor: pointer !important;
+    display: inline !important;
+    font-size: 14px !important;
+    text-align: left !important;
+    font-weight: 500 !important;
+    line-height: 1.5 !important;
+}
+div:has(> div > .history-section-marker) button:hover,
+div[data-testid="stExpander"]:has(.history-section-marker) button:hover {
+    color: #1E40AF !important;
+    background: transparent !important;
+    text-decoration: none !important;
+}
+div:has(> div > .history-section-marker) button:focus,
+div[data-testid="stExpander"]:has(.history-section-marker) button:focus {
+    background: transparent !important;
+    color: #111827 !important;
+    box-shadow: none !important;
+}
+
+.history-title {
+    color: #111827 !important;
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    margin: 0 0 16px 0 !important;
+}
+.pagination-container {
+    margin-top: 20px;
+    width: 100%;
+}
+.pagination-container div[data-testid="stHorizontalBlock"] {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: flex-end !important; /* Right-align pagination block */
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+}
+.pagination-container div[data-testid="column"] {
+    width: 40px !important;
+    min-width: 40px !important; /* Prevent vertical responsive stacking */
+    max-width: 40px !important;
+    flex: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+.pagination-container button {
+    width: 40px !important;
+    height: 40px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 8px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+    text-decoration: none !important; /* Remove underline for pagination buttons */
+    text-align: center !important;
+}
+.pagination-container button[data-testid="baseButton-primary"] {
+    background-color: #0F1E36 !important;
+    color: #FFFFFF !important;
+    border: 1px solid #0F1E36 !important;
+}
+.pagination-container button[data-testid="baseButton-secondary"] {
+    background-color: #FFFFFF !important;
+    color: #4B5563 !important;
+    border: 1px solid #D1D5DB !important;
+}
+.report-download-btn-container {
+    text-align: left;
+    margin-top: 15px;
+}
+.report-download-btn-container button {
+    background-color: #2563EB !important;
+    color: #FFFFFF !important;
+    border: 1px solid #2563EB !important;
+    border-radius: 8px !important;
+    padding: 10px 22px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease-in-out !important;
+    box-shadow: none !important;
+}
+.report-download-btn-container button:hover {
+    background-color: #0F1E36 !important;
+    border-color: #0F1E36 !important;
+    box-shadow: 0 4px 12px rgba(15, 30, 54, 0.15) !important;
+}
+.suggest-pill button {
+    background: #EFF6FF !important;
+    color: #1D4ED8 !important;
+    border: 1px solid #BFDBFE !important;
+    border-radius: 999px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    padding: 8px 18px !important;
+    white-space: normal !important;
+    height: auto !important;
+    line-height: 1.4 !important;
+    transition: all 0.15s !important;
+}
+.suggest-pill button:hover {
+    background: #2563EB !important;
+    color: #FFFFFF !important;
+    border-color: #2563EB !important;
+}
+.card-click-container {
+    position: relative;
+    margin-bottom: 14px;
+}
+div[data-testid="stCheckbox"] {
+    margin-top: 32px !important;
+}
+.work-order.selected {
+    border-color: #10B981 !important;
+    background-color: #F0FDF4 !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1) !important;
+}
+.work-order-title {
+    font-weight: 800 !important;
+    font-size: 15px !important;
+    color: #111827 !important;
+    margin-bottom: 6px !important;
+}
+.work-order-copy {
+    font-size: 13.5px !important;
+    color: #4B5563 !important;
+    line-height: 1.45 !important;
+}
+.vertical-actions-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 10px;
+}
+/* Force Streamlit download buttons with primary style to display with correct borders and transitions */
+div[data-testid="stDownloadButton"] button {
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease-in-out !important;
+}
+</style>
+
+""",
+    unsafe_allow_html=True,
+)
+
+
+BASE_TABLE = "vanh_gold.main.stg_supplychain_v2"
+ML_TABLE = "vanh_gold.main.ml_predictions_explained"
+ML_FEATURE_TABLE = "vanh_gold.main.ml_feature_importance"
+ML_PERFORMANCE_TABLE = "vanh_gold.main.ml_performance_metrics"
+
+
+def secret_value(key: str) -> str:
+    try:
+        return st.secrets.get(key, "")
+    except Exception:
+        return ""
+
+
 @st.cache_resource
-def get_connection():
-    return duckdb.connect(f"md:my_db?motherduck_token={st.secrets['MOTHERDUCK_TOKEN']}")
+def get_connection(token: str):
+    return duckdb.connect(f"md:my_db?motherduck_token={token}")
 
-con = get_connection()
 
-# ---------------------------------------------------------
-# CẤU HÌNH GIAO DIỆN CHUNG (LIGHT TECH THEME CHO PLOTLY - CHỮ NỔI BẬT)
-# ---------------------------------------------------------
-# Tone màu Công nghệ sắc nét: Xanh Blue, Tím, Xanh lục, Hồng, Cam
-tech_colors = ["#2563EB", "#7C3AED", "#10B981", "#EC4899", "#F59E0B"]
+def get_groq_client():
+    api_key = secret_value("GROQ_API_KEY") or st.session_state.get("groq_api_key", "")
+    if not api_key:
+        return None
+    from groq import Groq
 
-def apply_light_theme(fig):
-    fig.update_layout(
-        font=dict(
-            family="'Plus Jakarta Sans', sans-serif",
-            color="#334155"  # Màu chữ nhãn trục tối đậm dễ nhìn
-        ),
-        title=dict(
-            font=dict(
-                family="'Plus Jakarta Sans', sans-serif",
-                color="#0F172A",  # Tiêu đề biểu đồ đen đậm nổi bật
-                size=18
-            )
-        ),
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        margin=dict(t=50, b=20, l=20, r=20),
-        colorway=tech_colors
+    return Groq(api_key=api_key)
+
+
+def sql_escape(value) -> str:
+    return str(value).replace("'", "''")
+
+
+def safe_float(value, default=0.0) -> float:
+    try:
+        if value is None or pd.isna(value):
+            return default
+        return float(value)
+    except Exception:
+        return default
+
+
+def fmt_money(value) -> str:
+    value = safe_float(value)
+    if abs(value) >= 1_000_000:
+        return f"${value / 1_000_000:.1f}M"
+    if abs(value) >= 1_000:
+        return f"${value / 1_000:.1f}K"
+    return f"${value:,.0f}"
+
+
+def fmt_full_money(value) -> str:
+    return f"${safe_float(value):,.0f}"
+
+
+def fmt_num(value) -> str:
+    return f"{safe_float(value):,.0f}"
+
+
+def fmt_pct(value) -> str:
+    return f"{safe_float(value):.1f}%"
+
+
+def fmt_delta_value(value, previous, formatter, compare_label: str) -> str:
+    current = safe_float(value, None)
+    prior = safe_float(previous, None)
+    if current is None or prior is None:
+        return f"Chưa đủ dữ liệu để so sánh {compare_label}"
+    delta = current - prior
+    if abs(delta) < 0.000001:
+        return f"Không đổi so với {compare_label}"
+    direction = "tăng" if delta > 0 else "giảm"
+    return f"{direction} {formatter(abs(delta))} so với {compare_label}"
+
+
+def fmt_delta_points(value, previous, compare_label: str) -> str:
+    current = safe_float(value, None)
+    prior = safe_float(previous, None)
+    if current is None or prior is None:
+        return f"Chưa đủ dữ liệu để so sánh {compare_label}"
+    delta = current - prior
+    if abs(delta) < 0.05:
+        return f"Gần như không đổi so với {compare_label}"
+    direction = "tăng" if delta > 0 else "giảm"
+    return f"{direction} {abs(delta):.1f} điểm % so với {compare_label}"
+
+
+def fmt_delta_hours(value, previous, compare_label: str) -> str:
+    current = safe_float(value, None)
+    prior = safe_float(previous, None)
+    if current is None or prior is None:
+        return f"Chưa đủ dữ liệu để so sánh {compare_label}"
+    delta_hours = (current - prior) * 24
+    if abs(delta_hours) < 0.5:
+        return f"Gần như không đổi so với {compare_label}"
+    direction = "chậm thêm" if delta_hours > 0 else "cải thiện"
+    return f"{direction} {abs(delta_hours):.0f} giờ so với {compare_label}"
+
+
+def capitalize_first(s) -> str:
+    if not s:
+        return s
+    s_str = str(s)
+    return s_str[0].upper() + s_str[1:]
+
+
+def df_to_text_table(df) -> str:
+    if df is None or df.empty:
+        return "Không có dữ liệu chi tiết."
+    cols = list(df.columns)
+    widths = [max(len(str(c)), max([len(str(x)) for x in df[c]] + [0])) for c in cols]
+    
+    header = " | ".join(f"{str(c):<{widths[i]}}" for i, c in enumerate(cols))
+    separator = "-+-".join("-" * w for w in widths)
+    
+    rows = []
+    for _, r in df.iterrows():
+        rows.append(" | ".join(f"{str(r[c]):<{widths[i]}}" for i, c in enumerate(cols)))
+        
+    return f"| {header} |\n|-{separator}-|\n" + "\n".join(f"| {row} |" for row in rows)
+
+
+def generate_combined_report(question, sql, df, insight) -> str:
+    report = "================================================================================\n"
+    report += "                       BIÊN BẢN PHÂN TÍCH CHUỖI CUNG ỨNG                        \n"
+    report += "================================================================================\n\n"
+    report += f"1. CÂU HỎI PHÂN TÍCH:\n   \"{question}\"\n\n"
+    if sql:
+        report += f"2. TRUY VẤN DỮ LIỆU ĐÃ SỬ DỤNG (SQL):\n\n{sql}\n\n"
+    
+    if df is not None and not df.empty:
+        report += "3. BẢNG DỮ LIỆU CHI TIẾT:\n\n"
+        report += df_to_text_table(df)
+        report += "\n\n"
+        
+    report += "4. NHẬN ĐỊNH VÀ HÀNH ĐỘNG ĐỀ XUẤT TỪ TRỢ LÝ AI:\n\n"
+    report += f"{insight}\n\n"
+    report += "================================================================================\n"
+    report += "                                     BÁO CÁO                                    \n"
+    report += "================================================================================\n"
+    return report
+
+
+def fmt_delay_days(value) -> str:
+    days = safe_float(value)
+    hours = days * 24
+    if abs(hours) < 0.5:
+        return "gần như đúng lịch"
+    if hours < 0:
+        return f"sớm khoảng {abs(hours):.0f} giờ"
+    return f"chậm khoảng {hours:.0f} giờ"
+
+
+def describe_issue(row) -> str:
+    if row is None:
+        return "Không có nhóm điểm nghẽn trong phạm vi lọc"
+    return (
+        f"các đơn thuộc danh mục {row['category_name']}, gửi bằng {row['shipping_mode']} "
+        f"tại khu vực {row['order_region']}"
     )
-    fig.update_xaxes(showgrid=False, linecolor="#CBD5E1")
-    fig.update_yaxes(showgrid=True, gridcolor="#F1F5F9", linecolor="#CBD5E1")
+
+
+def short_issue(row) -> str:
+    return f"{row['category_name']} tại {row['order_region']}, gửi bằng {row['shipping_mode']}"
+
+
+def severity(late_rate, revenue_share=0, sla_gap=0):
+    late_rate = safe_float(late_rate)
+    revenue_share = safe_float(revenue_share)
+    sla_gap = safe_float(sla_gap)
+    if late_rate >= 10 or revenue_share >= 25 or sla_gap >= 1.0:
+        return "red", "ĐỎ"
+    if late_rate >= 5 or revenue_share >= 10 or sla_gap >= 0.5:
+        return "amber", "CAM"
+    return "green", "ỔN"
+
+
+def priority_level(position: int, total: int) -> str:
+    if total <= 0:
+        return "THEO DÕI"
+    if position <= 1:
+        return "ĐỎ"
+    if position <= 4:
+        return "CAM"
+    return "THEO DÕI"
+
+
+def trend_label(delta_points) -> str:
+    delta = safe_float(delta_points, None)
+    if delta is None:
+        return "Chưa đủ dữ liệu"
+    if delta >= 2:
+        return "Xấu đi"
+    if delta <= -2:
+        return "Cải thiện"
+    return "Ổn định"
+
+
+def table_signal_style(value):
+    text = str(value).lower()
+    if text in {"đỏ", "xấu đi"}:
+        return "background-color: #FEE2E2; color: #991B1B; font-weight: 700;"
+    if text == "cam":
+        return "background-color: #FEF3C7; color: #92400E; font-weight: 700;"
+    if text in {"cải thiện", "ổn định"}:
+        return "background-color: #D1FAE5; color: #065F46; font-weight: 700;"
+    return "background-color: #F3F4F6; color: #374151;"
+
+
+def html_escape(value) -> str:
+    return html.escape("" if value is None else str(value))
+
+
+def section(step: int, title: str, subtitle: str):
+    st.markdown(
+        f"""
+        <div class="section-title">
+            <div class="section-step">{step}</div>
+            <h3>{html_escape(title)}</h3>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def kpi_card(label, value, note, tone="blue"):
+    return f"""
+    <div class="kpi {tone}">
+        <div class="label">{html_escape(label)}</div>
+        <div class="value">{html_escape(capitalize_first(value))}</div>
+        <div class="note">{html_escape(note)}</div>
+    </div>
+    """
+
+
+def manager_card(kicker, title, copy, tone="warning"):
+    return f"""
+    <div class="manager-card {tone}">
+        <div class="card-kicker">{html_escape(kicker)}</div>
+        <div class="card-title">{html_escape(capitalize_first(title))}</div>
+        <p class="card-copy">{html_escape(capitalize_first(copy))}</p>
+    </div>
+    """
+
+
+def build_where(year, region, shipping, category, focus_mode):
+    conds = ["1=1"]
+    if year != "Tất cả":
+        conds.append(f"order_year = {int(year)}")
+    if region != "Tất cả":
+        conds.append(f"order_region = '{sql_escape(region)}'")
+    if shipping != "Tất cả":
+        conds.append(f"shipping_mode = '{sql_escape(shipping)}'")
+    if category != "Tất cả":
+        conds.append(f"category_name = '{sql_escape(category)}'")
+    if focus_mode == "Chỉ đơn trễ / rủi ro trễ":
+        conds.append("late_delivery_risk = 1")
+    return " AND ".join(conds)
+
+
+def build_previous_where(year, region, shipping, category, focus_mode):
+    if year == "Tất cả":
+        return None
+    previous_year = int(year) - 1
+    return build_where(str(previous_year), region, shipping, category, focus_mode)
+
+
+def build_trend_context(year, available_years, region, shipping, category, focus_mode):
+    year_values = sorted(int(y) for y in available_years)
+    if year != "Tất cả":
+        current_year = int(year)
+        previous_year = current_year - 1
+    elif len(year_values) >= 2:
+        current_year = year_values[-1]
+        previous_year = year_values[-2]
+    else:
+        return None
+    return {
+        "current_year": current_year,
+        "previous_year": previous_year,
+        "current_where": build_where(str(current_year), region, shipping, category, focus_mode),
+        "previous_where": build_where(str(previous_year), region, shipping, category, focus_mode),
+        "base_where": build_where("Tất cả", region, shipping, category, focus_mode),
+        "label": f"năm {previous_year}",
+    }
+
+
+token = secret_value("MOTHERDUCK_TOKEN")
+if not token:
+    st.warning("Chưa có MOTHERDUCK_TOKEN. Nhập token để mở bảng điều hành.")
+    token = st.text_input("MOTHERDUCK_TOKEN", type="password")
+    if not token:
+        st.stop()
+
+con = get_connection(token)
+
+
+@st.cache_data(ttl=1800)
+def filter_options():
+    years = con.execute(f"SELECT DISTINCT order_year FROM {BASE_TABLE} ORDER BY 1 DESC").df()["order_year"].dropna().astype(int).tolist()
+    regions = con.execute(f"SELECT DISTINCT order_region FROM {BASE_TABLE} ORDER BY 1").df()["order_region"].dropna().tolist()
+    shipping_modes = con.execute(f"SELECT DISTINCT shipping_mode FROM {BASE_TABLE} ORDER BY 1").df()["shipping_mode"].dropna().tolist()
+    categories = con.execute(f"SELECT DISTINCT category_name FROM {BASE_TABLE} ORDER BY 1").df()["category_name"].dropna().tolist()
+    return years, regions, shipping_modes, categories
+
+
+@st.cache_data(ttl=900)
+def query_summary(where_clause: str):
+    return con.execute(
+        f"""
+        SELECT
+            SUM(sales_amount) AS revenue,
+            SUM(profit) AS profit,
+            COUNT(DISTINCT order_id) AS orders,
+            COUNT(DISTINCT CASE WHEN late_delivery_risk = 1 THEN order_id END) AS late_orders,
+            SUM(CASE WHEN late_delivery_risk = 1 THEN sales_amount ELSE 0 END) AS revenue_at_risk,
+            AVG(days_for_shipping_real - days_for_shipment_scheduled) AS sla_gap,
+            SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS late_rate,
+            COUNT(DISTINCT CASE WHEN order_status LIKE '%CANCEL%' THEN order_id END) * 100.0
+                / NULLIF(COUNT(DISTINCT order_id), 0) AS cancel_rate,
+            AVG(discount) AS avg_discount
+        FROM {BASE_TABLE}
+        WHERE {where_clause}
+        """
+    ).df()
+
+
+@st.cache_data(ttl=900)
+def query_priority(where_clause: str):
+    return con.execute(
+        f"""
+        SELECT
+            order_region,
+            shipping_mode,
+            category_name,
+            COUNT(DISTINCT order_id) AS orders,
+            COUNT(DISTINCT CASE WHEN late_delivery_risk = 1 THEN order_id END) AS late_orders,
+            SUM(sales_amount) AS revenue,
+            SUM(profit) AS profit,
+            SUM(CASE WHEN late_delivery_risk = 1 THEN sales_amount ELSE 0 END) AS revenue_at_risk,
+            AVG(days_for_shipping_real - days_for_shipment_scheduled) AS sla_gap,
+            SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS late_rate,
+            SUM(profit) * 100.0 / NULLIF(SUM(sales_amount), 0) AS margin
+        FROM {BASE_TABLE}
+        WHERE {where_clause}
+        GROUP BY 1, 2, 3
+        ORDER BY revenue_at_risk DESC, late_rate DESC
+        LIMIT 12
+        """
+    ).df()
+
+
+@st.cache_data(ttl=900)
+def query_priority_trend(base_where_clause: str, current_year: int, previous_year: int):
+    return con.execute(
+        f"""
+        SELECT
+            order_region,
+            shipping_mode,
+            category_name,
+            SUM(CASE WHEN order_year = {current_year} AND late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0
+                / NULLIF(SUM(CASE WHEN order_year = {current_year} THEN 1 ELSE 0 END), 0) AS current_late_rate,
+            SUM(CASE WHEN order_year = {previous_year} AND late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0
+                / NULLIF(SUM(CASE WHEN order_year = {previous_year} THEN 1 ELSE 0 END), 0) AS previous_late_rate
+        FROM {BASE_TABLE}
+        WHERE {base_where_clause}
+          AND order_year IN ({current_year}, {previous_year})
+        GROUP BY 1, 2, 3
+        """
+    ).df()
+
+
+@st.cache_data(ttl=900)
+def query_priority_orders(where_clause: str, region: str, shipping: str, category: str):
+    return con.execute(
+        f"""
+        SELECT
+            order_id,
+            customer_id,
+            category_name,
+            product_name,
+            shipping_mode,
+            order_region,
+            order_country,
+            sales_amount,
+            profit,
+            delivery_status,
+            days_for_shipping_real,
+            days_for_shipment_scheduled,
+            days_for_shipping_real - days_for_shipment_scheduled AS delay_days
+        FROM {BASE_TABLE}
+        WHERE {where_clause}
+          AND order_region = '{sql_escape(region)}'
+          AND shipping_mode = '{sql_escape(shipping)}'
+          AND category_name = '{sql_escape(category)}'
+          AND late_delivery_risk = 1
+        ORDER BY sales_amount DESC
+        LIMIT 200
+        """
+    ).df()
+
+
+@st.cache_data(ttl=900)
+def query_monthly(where_clause: str):
+    return con.execute(
+        f"""
+        SELECT
+            order_year || '-' || LPAD(order_month::VARCHAR, 2, '0') AS month,
+            SUM(sales_amount) AS revenue,
+            SUM(profit) AS profit,
+            SUM(CASE WHEN late_delivery_risk = 1 THEN sales_amount ELSE 0 END) AS revenue_at_risk,
+            SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS late_rate,
+            AVG(days_for_shipping_real - days_for_shipment_scheduled) AS sla_gap
+        FROM {BASE_TABLE}
+        WHERE {where_clause}
+        GROUP BY 1
+        ORDER BY 1
+        """
+    ).df()
+
+
+@st.cache_data(ttl=900)
+def query_product(where_clause: str):
+    return con.execute(
+        f"""
+        SELECT
+            department_name,
+            category_name,
+            COUNT(DISTINCT order_id) AS orders,
+            SUM(sales_amount) AS revenue,
+            SUM(profit) AS profit,
+            SUM(CASE WHEN late_delivery_risk = 1 THEN sales_amount ELSE 0 END) AS revenue_at_risk,
+            SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS late_rate,
+            SUM(profit) * 100.0 / NULLIF(SUM(sales_amount), 0) AS margin
+        FROM {BASE_TABLE}
+        WHERE {where_clause}
+        GROUP BY 1, 2
+        ORDER BY revenue_at_risk DESC
+        LIMIT 10
+        """
+    ).df()
+
+
+@st.cache_data(ttl=900)
+def query_shipping(where_clause: str):
+    return con.execute(
+        f"""
+        SELECT
+            shipping_mode,
+            COUNT(DISTINCT order_id) AS orders,
+            SUM(sales_amount) AS revenue,
+            SUM(CASE WHEN late_delivery_risk = 1 THEN sales_amount ELSE 0 END) AS revenue_at_risk,
+            SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS late_rate,
+            AVG(days_for_shipping_real - days_for_shipment_scheduled) AS sla_gap
+        FROM {BASE_TABLE}
+        WHERE {where_clause}
+        GROUP BY 1
+        ORDER BY revenue_at_risk DESC
+        """
+    ).df()
+
+
+@st.cache_data(ttl=900)
+def query_matrix(where_clause: str):
+    return con.execute(
+        f"""
+        SELECT
+            order_region,
+            shipping_mode,
+            SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) AS late_rate,
+            SUM(CASE WHEN late_delivery_risk = 1 THEN sales_amount ELSE 0 END) AS revenue_at_risk
+        FROM {BASE_TABLE}
+        WHERE {where_clause}
+        GROUP BY 1, 2
+        """
+    ).df()
+
+
+@st.cache_data(ttl=900)
+def query_delivery_status(where_clause: str):
+    return con.execute(
+        f"""
+        SELECT
+            delivery_status,
+            COUNT(DISTINCT order_id) AS orders,
+            SUM(sales_amount) AS revenue,
+            SUM(profit) AS profit
+        FROM {BASE_TABLE}
+        WHERE {where_clause}
+        GROUP BY 1
+        ORDER BY orders DESC
+        """
+    ).df()
+
+
+@st.cache_data(ttl=900)
+def query_ml_signals():
+    try:
+        risk = con.execute(
+            f"""
+            SELECT
+                COUNT(DISTINCT order_id) AS predicted_risk_orders,
+                AVG(predicted_probability) * 100 AS avg_predicted_risk
+            FROM {ML_TABLE}
+            WHERE predicted_label = 1
+            """
+        ).df()
+        features = con.execute(
+            f"""
+            SELECT feature, importance_score
+            FROM {ML_FEATURE_TABLE}
+            ORDER BY importance_score DESC
+            LIMIT 6
+            """
+        ).df()
+        return risk, features
+    except Exception:
+        return pd.DataFrame(), pd.DataFrame()
+
+
+@st.cache_data(ttl=900)
+def query_unstructured_status():
+    try:
+        return con.execute(
+            """
+            SELECT table_schema, table_name
+            FROM information_schema.tables
+            WHERE lower(table_name) LIKE '%access%'
+               OR lower(table_name) LIKE '%click%'
+               OR lower(table_name) LIKE '%log%'
+               OR lower(table_name) LIKE '%description%'
+            ORDER BY table_schema, table_name
+            """
+        ).df()
+    except Exception:
+        return pd.DataFrame()
+
+
+def apply_chart_theme(fig, height=None):
+    fig.update_layout(
+        font=dict(family="Inter, sans-serif", color="#374151", size=12),
+        title=dict(font=dict(color="#111827", size=15), x=0),
+        plot_bgcolor="#FFFFFF",
+        paper_bgcolor="#FFFFFF",
+        margin=dict(l=20, r=18, t=46, b=25),
+        colorway=["#2563EB", "#3B82F6", "#D97706", "#DC2626", "#7C3AED"],
+    )
+    fig.update_xaxes(showgrid=False, linecolor="#E5E7EB", zeroline=False)
+    fig.update_yaxes(showgrid=True, gridcolor="#F3F4F6", linecolor="#E5E7EB", zeroline=False)
+    if height:
+        fig.update_layout(height=height)
     return fig
 
-# ---------------------------------------------------------
-# SIDEBAR NAVIGATION (HỌC HỎI STYLE TỪ ẢNH MẪU CỦA USER)
-# ---------------------------------------------------------
-with st.sidebar:
-    st.markdown("""
-        <div style="text-align: center; padding-bottom: 20px;">
-            <div style="font-size: 50px; margin-bottom: 10px; color: #818CF8;">🌐</div>
-            <h2 style="color: #FFFFFF; font-weight: 800; margin: 0; font-size: 20px;">QUẢN TRỊ RỦI RO</h2>
-            <p style="color: #FFFFFF; font-size: 11px; font-weight: 700; letter-spacing: 1px;">CHUỖI CUNG ỨNG</p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    # Menu học theo bố cục Sidebar trong hình mẫu (Icon bên trái, thanh viền trái khi chọn)
-    menu_selection = option_menu(
-        menu_title=None,
-        options=["Tổng quan vận hành", "Mô hình dự báo (AI)", "GenBI Insight"],
-        icons=["grid-fill", "lightning-charge-fill", "stars"],
-        menu_icon="cast",
-        default_index=0,
-        styles={
-            "container": {"padding": "0!important", "background-color": "#1E3A8A !important", "border-radius": "8px"},
-            "icon": {"color": "#FFFFFF !important", "font-size": "20px"}, 
-            "nav-link": {
-                "font-size": "14px", 
-                "text-align": "left", 
-                "margin":"5px 0px", 
-                "color": "#FFFFFF !important",
-                "font-weight": "600",
-                "border-radius": "4px",
-                "padding-left": "10px",
-                "transition": "0.2s",
-                "--hover-color": "rgba(255, 255, 255, 0.1)"
-            },
-            "nav-link-selected": {
-                "background-color": "rgba(255, 255, 255, 0.15) !important", 
-                "color": "#FFFFFF !important", 
-                "font-weight": "800",
-                "border-left": "4px solid #FFFFFF !important"
-            },
-        }
-    )
-    
-    st.write("---")
-    
-    @st.cache_data(ttl=3600)
-    def get_filter_options():
-        try:
-            years = con.execute("SELECT DISTINCT order_year FROM vanh_gold.main.dim_time ORDER BY 1 DESC").df()['order_year'].tolist()
-            regions = con.execute("SELECT DISTINCT order_region FROM vanh_gold.main.stg_supplychain_v2 ORDER BY 1").df()['order_region'].tolist()
-            shipping_modes = con.execute("SELECT DISTINCT shipping_mode FROM vanh_gold.main.fact_orders ORDER BY 1").df()['shipping_mode'].tolist()
-            return years, regions, shipping_modes
-        except Exception:
-            return [], [], []
 
-    years_list, regions_list, shipping_modes_list = get_filter_options()
-
-    with st.container(border=True):
-        st.markdown("<h4 style='color: #FFFFFF !important; font-size: 14px; font-weight: 800; margin-top: 0px; margin-bottom: 15px;'>🔍 BỘ LỌC TOÀN CỤC</h4>", unsafe_allow_html=True)
-        # Year filter (Cho phép chọn 'Tất cả')
-        selected_year = st.selectbox("Năm", ["Tất cả"] + [str(y) for y in years_list])
-        # Region filter
-        selected_region = st.selectbox("Khu vực", ["Tất cả"] + regions_list)
-        # Shipping Mode filter
-        selected_shipping = st.selectbox("Phương thức Vận chuyển", ["Tất cả"] + shipping_modes_list)
-    
-    st.write("---")
-    st.markdown("<p style='font-size:12px; color:#DBEAFE; padding-left:20px;'>☁️ CONNECTED TO <b>MOTHERDUCK</b><br>⚡ REAL-TIME SYNC</p>", unsafe_allow_html=True)
-
-# ---------------------------------------------------------
-# MODULE 1: OPERATIONS OVERVIEW (TAB 1)
-# ---------------------------------------------------------
-if menu_selection == "Tổng quan vận hành":
-    st.markdown("""
-    <div class="genbi-hero">
-        <div class="genbi-badge">✦ Operations Hub · Live Data</div>
-        <div class="genbi-hero-title">Báo cáo <span>tổng quan vận hành</span></div>
-        <p class="genbi-hero-sub">Theo dõi luồng lưu chuyển hàng hoá toàn cầu với dữ liệu xử lý theo thời gian thực.</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Helper function tạo mệnh đề WHERE
-    def build_where_clause(y, r, s):
-        conds = ["1=1"]
-        if y != "Tất cả": conds.append(f"order_year = {y}")
-        if r != "Tất cả": conds.append(f"order_region = '{r}'")
-        if s != "Tất cả": conds.append(f"shipping_mode = '{s}'")
-        return " AND ".join(conds)
-
-    def build_prev_where_clause(y, r, s):
-        if y == "Tất cả": return None
-        conds = ["1=1"]
-        conds.append(f"order_year = {int(y) - 1}")
-        if r != "Tất cả": conds.append(f"order_region = '{r}'")
-        if s != "Tất cả": conds.append(f"shipping_mode = '{s}'")
-        return " AND ".join(conds)
-
-    where_clause = build_where_clause(selected_year, selected_region, selected_shipping)
-    prev_where_clause = build_prev_where_clause(selected_year, selected_region, selected_shipping)
-
-    @st.cache_data(ttl=3600)
-    def get_kpis(where_c, prev_where_c):
-        query = f"""
-        SELECT 
-            SUM(sales_amount) as total_revenue,
-            SUM(profit) as total_profit,
-            COUNT(DISTINCT order_id) as total_orders,
-            SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as late_rate
-        FROM vanh_gold.main.stg_supplychain_v2
-        WHERE {where_c}
-        """
-        curr = con.execute(query).df()
-        
-        prev = None
-        if prev_where_c:
-            query_prev = f"""
-            SELECT 
-                SUM(sales_amount) as total_revenue,
-                SUM(profit) as total_profit,
-                COUNT(DISTINCT order_id) as total_orders,
-                SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as late_rate
-            FROM vanh_gold.main.stg_supplychain_v2
-            WHERE {prev_where_c}
-            """
-            prev = con.execute(query_prev).df()
-            
-        return curr, prev
-
-    kpis_curr, kpis_prev = get_kpis(where_clause, prev_where_clause)
-    
-    def get_delta_html(curr_val, prev_val, is_inverse=False):
-        if prev_val is None or pd.isna(prev_val) or prev_val == 0:
-            return ""
-        pct_change = ((curr_val - prev_val) / prev_val) * 100
-        
-        is_positive_change = pct_change >= 0
-        is_good = not is_positive_change if is_inverse else is_positive_change
-        
-        arrow = "▲" if is_positive_change else "▼"
-        color_code = "#10B981" if is_good else "#EF4444"
-        
-        return f'<span style="color: {color_code};">{arrow} {abs(pct_change):.1f}% so với {int(selected_year)-1}</span>'
-
-    with st.container(border=True):
-        st.markdown("<h4>Hiệu suất Tổng thể</h4>", unsafe_allow_html=True)
-        col1, col2, col3, col4 = st.columns(4)
-        
-        rev_curr = kpis_curr['total_revenue'].iloc[0] if not kpis_curr.empty else 0
-        prof_curr = kpis_curr['total_profit'].iloc[0] if not kpis_curr.empty else 0
-        ord_curr = kpis_curr['total_orders'].iloc[0] if not kpis_curr.empty else 0
-        late_curr = kpis_curr['late_rate'].iloc[0] if not kpis_curr.empty else 0
-        
-        rev_prev = kpis_prev['total_revenue'].iloc[0] if kpis_prev is not None and not kpis_prev.empty else None
-        prof_prev = kpis_prev['total_profit'].iloc[0] if kpis_prev is not None and not kpis_prev.empty else None
-        ord_prev = kpis_prev['total_orders'].iloc[0] if kpis_prev is not None and not kpis_prev.empty else None
-        late_prev = kpis_prev['late_rate'].iloc[0] if kpis_prev is not None and not kpis_prev.empty else None
-
-        with col1:
-            st.markdown(render_kpi("DOANH THU", f"${rev_curr:,.0f}" if not pd.isna(rev_curr) else "$0", "💰", "#EFF6FF", "#3B82F6", "#1E3A8A", get_delta_html(rev_curr, rev_prev)), unsafe_allow_html=True)
-        with col2:
-            st.markdown(render_kpi("LỢI NHUẬN", f"${prof_curr:,.0f}" if not pd.isna(prof_curr) else "$0", "📈", "#F0FDF4", "#10B981", "#064E3B", get_delta_html(prof_curr, prof_prev)), unsafe_allow_html=True)
-        with col3:
-            st.markdown(render_kpi("ĐƠN HÀNG", f"{ord_curr:,.0f}" if not pd.isna(ord_curr) else "0", "📦", "#F5F3FF", "#8B5CF6", "#4C1D95", get_delta_html(ord_curr, ord_prev)), unsafe_allow_html=True)
-        with col4:
-            st.markdown(render_kpi("RỦI RO TRỄ HẠN", f"{late_curr:.1f}%" if not pd.isna(late_curr) else "0%", "⚠️", "#FEF2F2", "#EF4444", "#7F1D1D", get_delta_html(late_curr, late_prev, is_inverse=True)), unsafe_allow_html=True)
-        
-    # ---------------------------------------------------------
-    # TRÍCH XUẤT TRƯỚC DỮ LIỆU ĐỂ PHỤC VỤ BIỂU ĐỒ & AI QUICK INSIGHT
-    # ---------------------------------------------------------
-    @st.cache_data(ttl=3600)
-    def get_late_by_month(where_c):
-        query = f"""
-        SELECT 
-            order_year || '-' || LPAD(order_month::VARCHAR, 2, '0') as month,
-            SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(order_id) as late_rate
-        FROM vanh_gold.main.stg_supplychain_v2
-        WHERE {where_c}
-        GROUP BY 1 ORDER BY 1
-        """
-        return con.execute(query).df()
-
-    @st.cache_data(ttl=3600)
-    def get_revenue_impact(where_c):
-        query = f"""
-        SELECT 
-            CASE WHEN late_delivery_risk = 1 THEN 'Rủi ro trễ hạn' ELSE 'Đúng tiến độ' END as status,
-            SUM(sales_amount) as revenue
-        FROM vanh_gold.main.stg_supplychain_v2
-        WHERE {where_c}
-        GROUP BY 1
-        """
-        return con.execute(query).df()
-
-    @st.cache_data(ttl=3600)
-    def get_late_by_shipping(where_c):
-        query = f"""
-        SELECT 
-            shipping_mode,
-            SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(order_id) as late_rate
-        FROM vanh_gold.main.stg_supplychain_v2
-        WHERE {where_c}
-        GROUP BY 1 ORDER BY 2 DESC
-        """
-        return con.execute(query).df()
-
-    @st.cache_data(ttl=3600)
-    def get_late_by_country(where_c):
-        query = f"""
-        SELECT 
-            order_country,
-            SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as late_rate
-        FROM vanh_gold.main.stg_supplychain_v2
-        WHERE {where_c}
-        GROUP BY 1 HAVING COUNT(*) > 50 ORDER BY 2 DESC LIMIT 10
-        """
-        return con.execute(query).df()
-
-    df_late_month = get_late_by_month(where_clause)
-    df_rev_impact = get_revenue_impact(where_clause)
-    df_ship = get_late_by_shipping(where_clause)
-    df_country = get_late_by_country(where_clause)
-
-    st.write("<br>", unsafe_allow_html=True)
-
-    # ---------------------------------------------------------
-    # RENDER CÁC BIỂU ĐỒ BIỂU DIỄN (Lấy data từ dataframes đã chuẩn bị ở trên)
-    # ---------------------------------------------------------
-    col_a, col_b = st.columns([6, 4])
-    with col_a:
-        with st.container(border=True):
-            if not df_late_month.empty:
-                df_late_month['rolling_avg'] = df_late_month['late_rate'].rolling(window=3, min_periods=1).mean()
-                
-                fig_late_month = go.Figure()
-                fig_late_month.add_trace(go.Scatter(
-                    x=df_late_month['month'], y=df_late_month['late_rate'], 
-                    mode='lines', name='Thực tế', 
-                    line=dict(color='rgba(79, 70, 229, 0.4)', width=2, dash='dash')
-                ))
-                fig_late_month.add_trace(go.Scatter(
-                    x=df_late_month['month'], y=df_late_month['rolling_avg'], 
-                    mode='lines+markers', name='Trung bình 3 tháng', 
-                    line=dict(color='#4F46E5', width=3, shape='spline'),
-                    fill='tozeroy', fillcolor='rgba(79, 70, 229, 0.1)',
-                    marker=dict(size=8, color="#FFFFFF", line=dict(color="#4F46E5", width=2))
-                ))
-                
-                y_min = min(df_late_month['late_rate'].min(), df_late_month['rolling_avg'].min())
-                y_max = max(df_late_month['late_rate'].max(), df_late_month['rolling_avg'].max())
-                y_margin = (y_max - y_min) * 0.15 if y_max != y_min else 5
-                
-                fig_late_month.update_layout(title="Xu hướng Rủi ro theo Thời gian (%)", xaxis_title="", yaxis_title="", hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-                fig_late_month.update_yaxes(range=[y_min - y_margin, y_max + y_margin])
-                fig_late_month = apply_light_theme(fig_late_month)
-                st.plotly_chart(fig_late_month, use_container_width=True)
-            else:
-                st.info("Không có dữ liệu cho biểu đồ này")
-
-    with col_b:
-        with st.container(border=True):
-            if not df_rev_impact.empty:
-                pull_values = [0.05 if s == 'Rủi ro trễ hạn' else 0 for s in df_rev_impact['status']]
-                
-                fig_impact = go.Figure(data=[go.Pie(
-                    labels=df_rev_impact['status'], 
-                    values=df_rev_impact['revenue'], 
-                    hole=0.6,
-                    pull=pull_values,
-                    marker=dict(
-                        colors=[ '#EF4444' if s == 'Rủi ro trễ hạn' else '#10B981' for s in df_rev_impact['status']],
-                        line=dict(color='#FFFFFF', width=3)
-                    ),
-                    textposition='outside', textinfo='percent+label'
-                )])
-                fig_impact.update_layout(title="Doanh thu bị Đe dọa", margin=dict(t=50, b=20, l=20, r=20), showlegend=False)
-                fig_impact = apply_light_theme(fig_impact)
-                st.plotly_chart(fig_impact, use_container_width=True)
-
-    col_c, col_d = st.columns([4, 6])
-    with col_c:
-        with st.container(border=True):
-            if not df_ship.empty:
-                fig_ship = px.bar(df_ship, x='shipping_mode', y='late_rate', title="Rủi ro Vận chuyển (%)", color='late_rate', color_continuous_scale=['#C4B5FD', '#7C3AED'])
-                fig_ship.update_traces(marker_line_width=0, opacity=0.9, width=0.5)
-                fig_ship.update_layout(xaxis_title="", yaxis_title="", coloraxis_showscale=False, margin=dict(b=0))
-                fig_ship = apply_light_theme(fig_ship)
-                st.plotly_chart(fig_ship, use_container_width=True)
-
-    with col_d:
-        with st.container(border=True):
-            if not df_country.empty:
-                df_country['order_country'] = df_country['order_country'].replace(country_dict)
-                fig_country = px.bar(df_country, x='late_rate', y='order_country', orientation='h', title="Top 10 Quốc gia Tỷ lệ Trễ cao", color='late_rate', color_continuous_scale=['#93C5FD', '#2563EB'])
-                fig_country.update_traces(marker_line_width=0, opacity=0.9)
-                fig_country.update_layout(xaxis_title="", yaxis_title="", yaxis={'categoryorder':'total ascending'}, coloraxis_showscale=False, margin=dict(l=0, r=0))
-                fig_country = apply_light_theme(fig_country)
-                st.plotly_chart(fig_country, use_container_width=True)
-
-    with st.container(border=True):
-        st.markdown("<h4>Bản đồ Điểm nóng Toàn cầu (Heatmap Density)</h4>", unsafe_allow_html=True)
-        @st.cache_data(ttl=3600)
-        def get_map_data(where_c):
-            query_map = f"""
-            SELECT order_country, latitude, longitude, sales_amount, CASE WHEN late_delivery_risk = 1 THEN 'Rủi ro cao' ELSE 'Ổn định' END as status
-            FROM vanh_gold.main.stg_supplychain_v2
-            WHERE {where_c}
-            LIMIT 10000
-            """
-            return con.execute(query_map).df()
-        
-        df_map = get_map_data(where_clause)
-        
-        if not df_map.empty:
-            df_map['order_country'] = df_map['order_country'].replace(country_dict)
-            
-            fig_map = px.scatter_geo(
-                df_map, 
-                lat='latitude', 
-                lon='longitude', 
-                size='sales_amount', 
-                color='status',
-                color_discrete_map={'Rủi ro cao': '#EF4444', 'Ổn định': '#10B981'},
-                projection="natural earth",
-                hover_name='order_country',
-                title="Bản đồ Phân bố Đơn hàng Toàn cầu"
-            )
-            fig_map.update_geos(
-                showcountries=True, countrycolor="rgba(100, 116, 139, 0.3)",
-                showland=True, landcolor="#F8FAFC",
-                showocean=True, oceancolor="#E2E8F0",
-                showlakes=True, lakecolor="#E2E8F0",
-                projection_scale=1.3
-            )
-            fig_map.update_layout(
-                height=750, 
-                margin={"r":0,"t":0,"l":0,"b":0}, 
-                paper_bgcolor="rgba(0,0,0,0)",
-                legend=dict(orientation="h", yanchor="bottom", y=0.02, xanchor="left", x=0.02)
-            )
-            fig_map = apply_light_theme(fig_map)
-            st.plotly_chart(fig_map, use_container_width=True)
+def make_auto_chart(df: pd.DataFrame, title: str):
+    if df.empty:
+        return None
+    numeric_cols = df.select_dtypes(include=["number"]).columns.tolist()
+    text_cols = [c for c in df.columns if c not in numeric_cols]
+    if len(df) <= 1 or not numeric_cols:
+        return None
+    if text_cols:
+        x_col = text_cols[0]
+        y_col = numeric_cols[0]
+        if "month" in x_col.lower() or "date" in x_col.lower():
+            fig = px.line(df, x=x_col, y=y_col, markers=True, title=title)
         else:
-            st.info("Không có dữ liệu hiển thị bản đồ")
+            fig = px.bar(df.head(12), x=x_col, y=y_col, title=title)
+        return apply_chart_theme(fig, 360)
+    fig = px.line(df[numeric_cols].reset_index(), x="index", y=numeric_cols[0], title=title)
+    return apply_chart_theme(fig, 360)
 
-        # =========================================================================
-        # AI QUICK INSIGHT
-        # =========================================================================
-        @st.fragment
-        def render_ai_insight_bottom():
-            with st.container(border=True):
-                st.markdown("<h4>🤖 AI Quick Insight</h4>", unsafe_allow_html=True)
-            
-                month_txt = df_late_month.to_string(index=False) if not df_late_month.empty else "N/A"
-                ship_txt = df_ship.to_string(index=False) if not df_ship.empty else "N/A"
-            
-                df_country_view = df_country.copy() if not df_country.empty else pd.DataFrame()
-                if not df_country_view.empty:
-                    df_country_view['order_country'] = df_country_view['order_country'].replace(country_dict)
-                country_txt = df_country_view.to_string(index=False) if not df_country_view.empty else "N/A"
 
-                quick_context = f"""
-                * KPIs: Doanh thu ${rev_curr:,.0f}, Lợi nhuận ${prof_curr:,.0f}, Tổng đơn {ord_curr:,.0f}, Tỷ lệ trễ {late_curr:.1f}%
-                * Xu hướng trễ hạn qua các tháng:\n{month_txt}
-                * Tỷ lệ trễ theo phương thức vận chuyển:\n{ship_txt}
-                * Top quốc gia trễ hạn nghiêm trọng:\n{country_txt}
-                """
+DISPLAY_COLUMN_LABELS = {
+    "order_id": "Mã đơn hàng",
+    "customer_id": "Mã khách hàng",
+    "product_name": "Sản phẩm",
+    "shipping_mode": "Phương thức vận chuyển",
+    "revenue_at_risk": "Doanh thu đang gặp rủi ro",
+    "sales_amount": "Doanh thu",
+    "profit": "Lợi nhuận",
+    "late_rate": "Tỷ lệ trễ (%)",
+    "orders": "Số đơn",
+    "late_orders": "Đơn trễ",
+    "category_name": "Danh mục sản phẩm",
+    "department_name": "Bộ phận",
+    "order_region": "Khu vực",
+    "order_country": "Quốc gia",
+    "order_city": "Thành phố",
+    "customer_segment": "Nhóm khách hàng",
+    "delivery_status": "Trạng thái giao hàng",
+    "days_for_shipping_real": "Số ngày giao thực tế",
+    "days_for_shipment_scheduled": "Số ngày cam kết",
+    "delay_days": "Độ lệch lịch hẹn",
+    "sla_gap": "Độ lệch lịch hẹn",
+    "margin": "Biên lợi nhuận (%)",
+    "predicted_probability": "Xác suất dự báo",
+    "predicted_label": "Nhãn dự báo",
+}
 
-                with st.spinner("⚡ AI đang tự động tổng hợp dữ liệu và trích xuất Insight..."):
-                    from groq import Groq
-                    try:
-                        client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-                        resp = client.chat.completions.create(
-                            model="llama-3.1-8b-instant", 
-                            messages=[
-                                {
-                                    "role": "system", 
-                                    "content": (
-                                        "Bạn là Giám đốc Phân tích Chuỗi cung ứng cấp cao. Nhiệm vụ của bạn là đưa ra ĐÚNG 3 Insight chuyên sâu bằng tiếng Việt.\n\n"
-                                        "QUY TẮC ĐẶT TIÊU ĐỀ (BẮT BUỘC NHƯ HÌNH 2):\n"
-                                        "- Tiêu đề phải bắt đầu bằng '### Insight 1:', '### Insight 2:', '### Insight 3:'.\n"
-                                        "- Tên tiêu đề phải chỉ thẳng vào BẢN CHẤT HOẶC ĐIỂM NGHẼN LỚN NHẤT, không viết chung chung kiểu 'ảnh hưởng đến...' hay 'xu hướng theo...'.\n"
-                                        "  * Ví dụ tốt: '### Insight 2: Phương thức vận chuyển First Class là nguồn cơn chính của trễ hạn'\n"
-                                        "  * Ví dụ xấu: '### Insight 2: Phương thức vận chuyển ảnh hưởng đến tỷ lệ trễ hạn'\n\n"
-                                        "QUY TẮC VIẾT NỘI DUNG (GẠCH ĐẦU DÒNG & ĐẮT GIÁ):\n"
-                                        "- Dưới mỗi insight, chỉ viết từ 2 đến 3 gạch đầu dòng ngắn gọn.\n"
-                                        "- Gạch đầu dòng đầu tiên: Đưa ra nhận định tổng quan kèm THEO ĐÚNG 1 ĐẾN 2 CON SỐ ĐẮT GIÁ NHẤT (ví dụ: con số cao nhất, hoặc mức tăng mạnh nhất) để làm dẫn chứng. TUYỆT ĐỐI KHÔNG LIỆT KÊ TOÀN BỘ DANH SÁCH số liệu thô.\n"
-                                        "- Gạch đầu dòng tiếp theo: Đưa ra lý giải logic hoặc gợi ý hành động thực tế dựa trên điểm nghẽn đó."
-                                    )
-                                },
-                                {
-                                    "role": "user", 
-                                    "content": (
-                                        f"Dựa trên dữ liệu chuỗi cung ứng sau đây:\n{quick_context}\n\n"
-                                        "Hãy viết 3 Insight sắc bén, giật các tiêu đề trực diện vào điểm nghẽn và đưa số liệu dẫn chứng tinh gọn theo đúng quy tắc."
-                                    )
-                                },
-                            ],
-                            temperature=0.15, # Giữ độ ổn định cao, tránh sáng tạo lung tung
-                            max_tokens=800,
-                        )
-                        st.info(resp.choices[0].message.content)
-                    except Exception as e:
-                        st.error(f"Lỗi gọi AI Quick Insight tự động: {e}")
 
-        # Gọi hàm để thực thi dưới cùng trang
-        render_ai_insight_bottom()
+def rename_for_display(df: pd.DataFrame) -> pd.DataFrame:
+    return df.rename(columns={col: DISPLAY_COLUMN_LABELS.get(col, col) for col in df.columns})
 
-# ---------------------------------------------------------
-# MODULE 2: AI & SHAP 
-# ---------------------------------------------------------
-elif menu_selection == "Mô hình dự báo (AI)":
 
-    @st.cache_data(ttl=3600)
-    def get_ai_summary_stats():
-        # 1. Số đơn rủi ro cao
-        risk_count = con.execute("SELECT COUNT(DISTINCT order_id) as cnt FROM my_db.main.ml_predictions_explained WHERE predicted_label = 1").df()['cnt'].iloc[0]
-        
-        # 2. Doanh thu rủi ro
-        sales_risk = con.execute("""
-            SELECT SUM(sales_amount) as total_sales
-            FROM (
-                SELECT order_id, MAX(sales_amount) as sales_amount
-                FROM vanh_gold.main.stg_supplychain_v2
-                WHERE order_id IN (SELECT DISTINCT order_id FROM my_db.main.ml_predictions_explained WHERE predicted_label = 1)
-                GROUP BY order_id
-            )
-        """).df()['total_sales'].iloc[0]
-        sales_risk = sales_risk if sales_risk is not None else 0
-        
-        # 3. AUC của mô hình
-        try:
-            auc_val = con.execute("SELECT auc FROM my_db.main.ml_performance_metrics LIMIT 1").df()['auc'].iloc[0]
-        except:
-            auc_val = 0.852
-            
-        # 4. Danh sách Top 10 đơn hàng rủi ro cao nhất
-        top_risky_df = con.execute("""
-            SELECT 
-                p.order_id as "Order ID",
-                s.customer_fname || ' ' || s.customer_lname as "Khách hàng",
-                p.order_region as "Khu vực",
-                p.predicted_probability as "Xác suất rủi ro",
-                MAX(s.sales_amount) as "Doanh thu"
-            FROM my_db.main.ml_predictions_explained p
-            JOIN vanh_gold.main.stg_supplychain_v2 s ON p.order_id = s.order_id
-            WHERE p.predicted_label = 1
-            GROUP BY p.order_id, "Khách hàng", p.order_region, p.predicted_probability
-            ORDER BY p.predicted_probability DESC
-            LIMIT 10
-        """).df()
-        
-        # 5. So sánh nhóm
-        ship_risk = con.execute("""
-            SELECT shipping_mode, AVG(predicted_probability) * 100.0 as avg_risk
-            FROM my_db.main.ml_predictions_explained
-            GROUP BY 1 ORDER BY 2 DESC
-        """).df()
-        
-        region_risk = con.execute("""
-            SELECT order_region, AVG(predicted_probability) * 100.0 as avg_risk
-            FROM my_db.main.ml_predictions_explained
-            GROUP BY 1 ORDER BY 2 DESC LIMIT 10
-        """).df()
-        
-        return risk_count, sales_risk, auc_val, top_risky_df, ship_risk, region_risk
+def is_safe_select(sql: str) -> bool:
+    cleaned = sql.strip().rstrip(";").strip()
+    lowered = cleaned.lower()
+    if not (lowered.startswith("select") or lowered.startswith("with")):
+        return False
+    blocked = [
+        "insert ",
+        "update ",
+        "delete ",
+        "drop ",
+        "alter ",
+        "create ",
+        "attach ",
+        "detach ",
+        "copy ",
+        "export ",
+        "pragma ",
+        "grant ",
+        "truncate ",
+    ]
+    if any(word in lowered for word in blocked):
+        return False
+    allowed = [
+        BASE_TABLE,
+        ML_TABLE,
+        ML_PERFORMANCE_TABLE,
+        ML_FEATURE_TABLE, 
+    ]
+    return any(table.lower() in lowered for table in allowed)
 
-    # ── Load data TRƯỚC khi render bất kỳ thứ gì ──────────────
-    # Trick: dùng st.fragment để isolate render Module 2 khỏi DOM cũ
-    @st.fragment
-    def render_module2_content():
-        risk_count, sales_risk, auc_val, top_risky_df, ship_risk, region_risk = get_ai_summary_stats()
 
-        st.markdown("""
-        <div class="genbi-hero">
-            <div class="genbi-badge">✦ AI Predictive Model · SHAP</div>
-            <div class="genbi-hero-title">Dự báo rủi ro bằng <span>trí tuệ nhân tạo</span></div>
-            <p class="genbi-hero-sub">Giải mã thuật toán Machine Learning - Ứng dụng công nghệ SHAP để giải thích các quyết định dự báo rủi ro.</p>
+def extract_sql(text: str) -> str:
+    match = re.search(r"```sql\s*(.*?)```", text, flags=re.IGNORECASE | re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    match = re.search(r"```\s*(.*?)```", text, flags=re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return text.strip()
+
+
+SCHEMA_CONTEXT = f"""
+Bạn là chuyên gia Auto-SQL cho DuckDB. Chỉ được sinh SELECT/WITH an toàn.
+
+Bảng vận hành chính: {BASE_TABLE}
+Cột: order_id, order_item_id, customer_id, customer_segment, customer_state, customer_country,
+product_name, category_name, department_name, product_price, order_item_quantity,
+sales_amount, profit, discount, shipping_mode, days_for_shipping_real,
+days_for_shipment_scheduled, late_delivery_risk, delivery_status, market,
+order_region, order_city, order_state, order_country, latitude, longitude,
+order_date, shipping_date, order_year, order_month, order_quarter, order_weekday,
+order_status, order_type.
+
+Bảng dự báo AI: {ML_TABLE}
+Cột: order_id, shipping_mode, customer_state, order_type, order_region,
+order_weekday, order_month, customer_segment, actual, predicted_probability,
+predicted_label, created_at, shap_shipping_mode, shap_customer_state,
+shap_order_type, shap_order_region, shap_order_weekday, shap_order_month,
+shap_customer_segment, shap_days_for_shipment_scheduled.
+
+Bảng hiệu suất mô hình: {ML_PERFORMANCE_TABLE}
+Cột: model_name, auc, f1, best_threshold, created_at.
+
+Khi người dùng hỏi về 'Yếu tố ảnh hưởng nhiều nhất đến dự đoán trễ', 'Phân tích SHAP', 'Mức độ quan trọng của đặc trưng (Feature Importance)', hoặc 'Những yếu tố nào ảnh hưởng nhiều nhất đến dự đoán giao hàng trễ', bạn phải truy vấn từ bảng: {ML_TABLE}
+Bảng này chứa giá trị SHAP đóng góp vào rủi ro trễ đơn hàng của từng yếu tố (giá trị dương làm tăng rủi ro, giá trị âm làm giảm rủi ro).
+Khi người dùng hỏi chung về 'những yếu tố ảnh hưởng nhiều nhất đến dự đoán giao hàng trễ', bản chất của họ là muốn xem tổng thể tầm quan trọng của đặc trưng (Global Feature Importance). Bạn phải thực hiện lệnh SELECT tính trung bình trị tuyệt đối AVG(ABS(shap_...)) cho toàn bộ các cột đóng góp mô hình của bảng giải thích dữ liệu {ML_TABLE} giống như câu hỏi Top đặc trưng!
+Để tính mức độ ảnh hưởng tổng thể của các yếu tố, bạn cần dùng hàm tính TRUNG BÌNH GIÁ TRỊ TUYỆT ĐỐI (AVG(ABS(...))) cho các cột SHAP sau đây:
+- shap_shipping_mode (Đóng góp của Phương thức vận chuyển)
+- shap_customer_state (Đóng góp của Bang của khách hàng)
+- shap_order_type (Đóng góp của Loại đơn hàng)
+- shap_order_region (Đóng góp của Khu vực đặt hàng)
+- shap_order_weekday (Đóng góp của Ngày trong tuần)
+- shap_order_month (Đóng góp của Tháng đặt hàng)
+- shap_customer_segment (Đóng góp của Phân khúc khách hàng)
+- shap_days_for_shipment_scheduled (Đóng góp của Số ngày dự kiến giao)
+
+Ví dụ câu lệnh mẫu để tìm Top đặc trưng quan trọng nhất:
+SELECT 'Phương thức vận chuyển' AS feature_name, AVG(ABS(shap_shipping_mode)) AS importance FROM {ML_TABLE}
+UNION ALL
+SELECT 'Bang của khách hàng', AVG(ABS(shap_customer_state)) FROM {ML_TABLE}
+UNION ALL
+SELECT 'Loại đơn hàng', AVG(ABS(shap_order_type)) FROM {ML_TABLE}
+UNION ALL
+SELECT 'Khu vực đặt hàng', AVG(ABS(shap_order_region)) FROM {ML_TABLE}
+UNION ALL
+SELECT 'Ngày trong tuần', AVG(ABS(shap_order_weekday)) FROM {ML_TABLE}
+UNION ALL
+SELECT 'Tháng đặt hàng', AVG(ABS(shap_order_month)) FROM {ML_TABLE}
+UNION ALL
+SELECT 'Phân khúc khách hàng', AVG(ABS(shap_customer_segment)) FROM {ML_TABLE}
+UNION ALL
+SELECT 'Số ngày dự kiến giao', AVG(ABS(shap_days_for_shipment_scheduled)) FROM {ML_TABLE}
+ORDER BY importance DESC;
+
+Quy tắc:
+- Chỉ dùng đúng tên bảng/cột trên.
+- "Doanh thu đang gặp rủi ro" hoặc "Doanh thu cần bảo vệ" nghĩa là SUM(CASE WHEN late_delivery_risk = 1 THEN sales_amount ELSE 0 END).
+- "Tỷ lệ giao trễ" nghĩa là SUM(CASE WHEN late_delivery_risk = 1 THEN 1 ELSE 0 END) * 100.0 / COUNT(*).
+- "Biên lợi nhuận" hoặc "Biên lợi nhuận (%)" nghĩa là SUM(profit) * 100.0 / SUM(sales_amount).
+- "Tỷ lệ đơn hàng bị dự đoán trễ" hoặc "tỷ lệ bị dự đoán trễ" nghĩa là SUM(predicted_label) * 100.0 / COUNT(*).
+- Với câu hỏi về doanh thu, lợi nhuận, biên lợi nhuận, giao hàng (thực tế), sản phẩm, khu vực, dùng bảng vận hành chính {BASE_TABLE}.
+- Với câu hỏi liên quan đến 'dự đoán', 'dự báo', 'bị dự đoán trễ', 'predicted', 'xác suất', 'SHAP', 'tầm quan trọng đặc trưng', dùng bảng dự báo AI {ML_TABLE}.
+- Thêm LIMIT 50 nếu kết quả không phải tổng hợp một dòng.
+- Chỉ trả về duy nhất SQL trong ```sql ... ```.
+MẸO NHẬN BIẾT CÂU HỎI CỦA NGƯỜI DÙNG:
+- Khi người dùng hỏi: "Những yếu tố nào ảnh hưởng nhiều nhất đến dự đoán giao hàng trễ?" hoặc "Yếu tố nào tác động lớn nhất đến rủi ro trễ?", bản chất họ đang hỏi về Tầm quan trọng của đặc trưng tổng thể (Global Feature Importance).
+- Bạn PHẢI viết câu lệnh SELECT tính TRUNG BÌNH GIÁ TRỊ TUYỆT ĐỐI (AVG(ABS(...))) của các cột SHAP trong bảng `vanh_gold.main.ml_predictions_explained`.
+
+Tuyệt đối KHÔNG TRUY VẤN bảng `stg_supplychain_v2` hay tính toán late_delivery_risk cho câu hỏi này, vì đây là câu hỏi giải thích mô hình Machine Learning!
+"""
+
+
+years, regions, shipping_modes, categories = filter_options()
+
+with st.sidebar:
+    st.markdown(
+        """
+        <div class="sidebar-title">
+            <h2>Điều hành chuỗi cung ứng</h2>
+            <p>Theo dõi đơn hàng, giao hàng, lợi nhuận và các điểm cần xử lý trong phạm vi dữ liệu lịch sử.</p>
         </div>
-        """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
+    selected_year = st.selectbox("Năm", ["Tất cả"] + [str(y) for y in years])
+    selected_region = st.selectbox("Khu vực", ["Tất cả"] + regions)
+    selected_shipping = st.selectbox("Phương thức vận chuyển", ["Tất cả"] + shipping_modes)
+    selected_category = st.selectbox("Danh mục sản phẩm", ["Tất cả"] + categories)
+    selected_focus = st.radio(
+        "Chế độ xem",
+        ["Tất cả đơn hàng", "Chỉ đơn trễ / rủi ro trễ"],
+        index=0,
+    )
+    st.caption(
+        f"Phạm vi đang xem: năm {selected_year}; khu vực {selected_region}; "
+        f"vận chuyển {selected_shipping}; danh mục {selected_category}; chế độ {selected_focus}."
+    )
+    if not secret_value("GROQ_API_KEY"):
+        st.text_input("GROQ_API_KEY", type="password", key="groq_api_key")
+    st.divider()
+    st.caption("Nguồn dữ liệu: kho MotherDuck")
 
-        # 1. KPI cards ở đầu trang AI
-        with st.container(border=True):
-            st.markdown("<h4 style='margin-top:0px;'>Hiệu suất Hệ thống & Rủi ro Chuỗi cung ứng</h4>", unsafe_allow_html=True)
-            col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
-            with col_kpi1:
-                st.markdown(render_kpi("ĐƠN HÀNG RỦI RO CAO", f"{risk_count:,}", "⚠️", "#FEF2F2", "#EF4444", "#7F1D1D"), unsafe_allow_html=True)
-            with col_kpi2:
-                st.markdown(render_kpi("DOANH THU BỊ ĐE DỌA", f"${sales_risk:,.0f}", "💸", "#FFFBEB", "#F59E0B", "#78350F"), unsafe_allow_html=True)
-            with col_kpi3:
-                st.markdown(render_kpi("ĐỘ TIN CẬY MÔ HÌNH (AUC)", f"{auc_val:.1%}", "📈", "#F0FDF4", "#10B981", "#064E3B"), unsafe_allow_html=True)
 
-        # 2. Không gian xử lý đơn hàng rủi ro (Table & Waterfall side-by-side)
-        with st.container(border=True):
-            st.markdown("<h4>🔍 KHÔNG GIAN XỬ LÝ ĐƠN HÀNG RỦI RO (RISK RESOLUTION WORKSPACE)</h4>", unsafe_allow_html=True)
-            
-            @st.cache_data(ttl=3600)
-            def get_all_order_ids():
-                try:
-                    return con.execute("SELECT order_id FROM my_db.main.ml_predictions_explained LIMIT 200").df()['order_id'].tolist()
-                except:
-                    return []
-                    
-            @st.cache_data(ttl=3600)
-            def get_shap_for_order(order_id):
-                try:
-                    return con.execute(f"SELECT * FROM my_db.main.ml_predictions_explained WHERE order_id = '{order_id}'").df()
-                except:
-                    return pd.DataFrame()
+where_clause = build_where(selected_year, selected_region, selected_shipping, selected_category, selected_focus)
+trend_context = build_trend_context(selected_year, years, selected_region, selected_shipping, selected_category, selected_focus)
 
-            top_ids = top_risky_df["Order ID"].tolist()
-            all_ids = get_all_order_ids()
-            selectbox_options = top_ids + [id for id in all_ids if id not in top_ids]
+summary_df = query_summary(where_clause)
+summary = summary_df.iloc[0] if not summary_df.empty else pd.Series(dtype="object")
+trend_current_df = query_summary(trend_context["current_where"]) if trend_context else pd.DataFrame()
+trend_previous_df = query_summary(trend_context["previous_where"]) if trend_context else pd.DataFrame()
+trend_current = trend_current_df.iloc[0] if not trend_current_df.empty else pd.Series(dtype="object")
+trend_previous = trend_previous_df.iloc[0] if not trend_previous_df.empty else pd.Series(dtype="object")
+priority_df = query_priority(where_clause)
+if trend_context and not priority_df.empty:
+    priority_trend_df = query_priority_trend(
+        trend_context["base_where"],
+        trend_context["current_year"],
+        trend_context["previous_year"],
+    )
+    if not priority_trend_df.empty:
+        priority_df = priority_df.merge(
+            priority_trend_df,
+            on=["order_region", "shipping_mode", "category_name"],
+            how="left",
+        )
+        priority_df["late_rate_delta"] = priority_df["current_late_rate"] - priority_df["previous_late_rate"]
+monthly_df = query_monthly(where_clause)
+product_df = query_product(where_clause)
+shipping_df = query_shipping(where_clause)
+matrix_df = query_matrix(where_clause)
+delivery_df = query_delivery_status(where_clause)
+ml_risk_df, ml_features_df = query_ml_signals()
+unstructured_df = query_unstructured_status()
 
-            if selectbox_options:
-                col_wf1, col_wf2 = st.columns([4, 6])
-                
-                with col_wf1:
-                    st.markdown("<h5 style='margin-top:0px;'>📋 Top đơn hàng rủi ro cần xử lý</h5>", unsafe_allow_html=True)
-                    display_df = top_risky_df.copy()
-                    display_df["Xác suất rủi ro"] = display_df["Xác suất rủi ro"].apply(lambda x: f"{x:.1%}")
-                    display_df["Doanh thu"] = display_df["Doanh thu"].apply(lambda x: f"${x:,.0f}")
-                    st.dataframe(display_df, use_container_width=True, hide_index=True)
-                    
-                    selected_order = st.selectbox("👉 Chọn Order ID để xem phân tích rủi ro Waterfall:", selectbox_options, key="wf_select_order")
-                    
-                with col_wf2:
-                    df_selected_row = get_shap_for_order(selected_order)
-                    if not df_selected_row.empty:
-                        row = df_selected_row.iloc[0]
-                        shap_cols = [c for c in df_selected_row.columns if c.startswith('shap_')]
-                        
-                        shap_values = []
-                        features = []
-                        for c in shap_cols:
-                            val = row[c]
-                            feat_name = c.replace('shap_', '').upper()
-                            feat_val = row[c.replace('shap_', '')] if c.replace('shap_', '') in row else "N/A"
-                            features.append(f"{feat_name}<br><span style='font-size:11px;color:#64748B;'>{feat_val}</span>")
-                            shap_values.append(val)
-                            
-                        fig_waterfall = go.Figure(go.Waterfall(
-                            name = "Order", orientation = "v",
-                            measure = ["relative"] * len(features),
-                            x = features, textposition = "outside",
-                            text = [f"{v:+.2f}" for v in shap_values],
-                            textfont=dict(color="#0F172A", size=13, weight="bold"),
-                            y = shap_values,
-                            connector = {"line":{"color":"#E2E8F0", "width":2}},
-                            increasing = {"marker":{"color":"#E11D48"}},
-                            decreasing = {"marker":{"color":"#4F46E5"}}
-                        ))
-                        
-                        prob = row['predicted_probability']
-                        pred = "⚠️ NGUY CƠ TRỄ HẠN CAO" if row['predicted_label'] == 1 else "✅ TIẾN ĐỘ AN TOÀN"
-                        pred_color = "#E11D48" if row['predicted_label'] == 1 else "#10B981"
-                        
-                        fig_waterfall.update_layout(
-                            title=f"<span style='color:{pred_color}; font-size:20px;'>{pred}</span> <br><span style='font-size:13px;color:#64748B;'>Xác suất rủi ro: {prob*100:.1f}%</span>",
-                            showlegend=False, waterfallgap=0.2, margin=dict(t=50, b=20, l=20, r=20)
-                        )
-                        fig_waterfall = apply_light_theme(fig_waterfall)
-                        st.plotly_chart(fig_waterfall, use_container_width=True)
-                        
-                        st.markdown("*💡 **Lưu ý về dữ liệu:** Các giá trị trên biểu đồ Waterfall thể hiện **Log-Odds** (thước đo nội bộ của thuật toán). Tổng điểm cộng dồn này (cộng Base Value) qua hàm Sigmoid sẽ ra Xác suất rủi ro %.*")
-                    else:
-                        st.warning(f"Không tìm thấy thông tin giải thích SHAP cho Order ID: {selected_order}")
-            else:
-                st.warning("Không tìm thấy dữ liệu ml_predictions_explained.")
+revenue = safe_float(summary.get("revenue"))
+profit = safe_float(summary.get("profit"))
+orders = safe_float(summary.get("orders"))
+late_orders = safe_float(summary.get("late_orders"))
+revenue_at_risk = safe_float(summary.get("revenue_at_risk"))
+sla_gap = safe_float(summary.get("sla_gap"))
+late_rate = safe_float(summary.get("late_rate"))
+cancel_rate = safe_float(summary.get("cancel_rate"))
+avg_discount = safe_float(summary.get("avg_discount"))
+margin = profit / revenue * 100 if revenue else 0
+risk_share = revenue_at_risk / revenue * 100 if revenue else 0
+sev_class, sev_label = severity(late_rate, risk_share, sla_gap)
+target_late_rate = 10.0
+late_target_ratio = late_rate / target_late_rate if target_late_rate else 0
+target_compare_text = (
+    f"cao gấp {late_target_ratio:.1f} lần so với mục tiêu {target_late_rate:.0f}%"
+    if late_rate > target_late_rate and late_target_ratio
+    else f"đang trong mục tiêu {target_late_rate:.0f}%"
+)
+compare_label = trend_context["label"] if trend_context else "kỳ trước"
+trend_prefix = f"Năm {trend_context['current_year']} " if trend_context else ""
+revenue_delta_text = trend_prefix + fmt_delta_value(trend_current.get("revenue"), trend_previous.get("revenue"), fmt_money, compare_label)
+profit_delta_text = trend_prefix + fmt_delta_value(trend_current.get("profit"), trend_previous.get("profit"), fmt_money, compare_label)
+orders_delta_text = trend_prefix + fmt_delta_value(trend_current.get("orders"), trend_previous.get("orders"), fmt_num, compare_label)
+late_delta_text = trend_prefix + fmt_delta_points(trend_current.get("late_rate"), trend_previous.get("late_rate"), compare_label)
+risk_delta_text = trend_prefix + fmt_delta_value(trend_current.get("revenue_at_risk"), trend_previous.get("revenue_at_risk"), fmt_money, compare_label)
+sla_delta_text = trend_prefix + fmt_delta_hours(trend_current.get("sla_gap"), trend_previous.get("sla_gap"), compare_label)
+cancel_delta_text = trend_prefix + fmt_delta_points(trend_current.get("cancel_rate"), trend_previous.get("cancel_rate"), compare_label)
+data_window = f"{min(years)}-{max(years)}" if years else "dữ liệu lịch sử"
 
-        # 3. Phân tích đặc trưng ảnh hưởng (Beeswarm & Feature Importance side-by-side)
-        with st.container(border=True):
-            st.markdown("<h4 style='text-align:center;'>PHÂN TÍCH YẾU TỐ ẢNH HƯỞNG ĐẾN QUYẾT ĐỊNH DỰ BÁO (SHAP DETAILED ANALYSIS)</h4>", unsafe_allow_html=True)
-            @st.cache_data(ttl=3600)
-            def get_shap_beeswarm():
-                query = "SELECT * FROM my_db.main.ml_predictions_explained LIMIT 300"
-                try:
-                    return con.execute(query).df()
-                except:
-                    return pd.DataFrame() 
-                    
-            df_shap_all = get_shap_beeswarm()
-            if not df_shap_all.empty:
-                try:
-                    shap_cols = [c for c in df_shap_all.columns if c.startswith('shap_')]
-                    melted = pd.melt(df_shap_all, id_vars=['order_id'], value_vars=shap_cols, var_name='feature', value_name='shap_value')
-                    melted['feature'] = melted['feature'].str.replace('shap_', '')
-                    feature_order = melted.groupby('feature')['shap_value'].apply(lambda x: np.abs(x).mean()).sort_values(ascending=False).index
-                    
-                    mean_shap = melted.groupby('feature')['shap_value'].apply(lambda x: np.abs(x).mean()).reset_index()
-                    mean_shap.columns = ['feature', 'mean_abs_shap']
-                    mean_shap = mean_shap.sort_values(by='mean_abs_shap', ascending=True)
-                    
-                    fig_bar = px.bar(
-                        mean_shap, 
-                        x='mean_abs_shap', 
-                        y='feature', 
-                        orientation='h',
-                        title="Mức độ Ảnh hưởng Trung bình (Độ quan trọng)",
-                        color='mean_abs_shap',
-                        color_continuous_scale=['#93C5FD', '#2563EB']
-                    )
-                    fig_bar.update_traces(marker_line_width=0, opacity=0.9)
-                    fig_bar.update_layout(xaxis_title="Tác động trung bình lên xác suất trễ hạn", yaxis_title="", coloraxis_showscale=False, margin=dict(t=50, b=20, l=20, r=20))
-                    fig_bar = apply_light_theme(fig_bar)
+top_issue = priority_df.iloc[0] if not priority_df.empty else None
+top_issue_name = describe_issue(top_issue)
+top_issue_copy = (
+    f"Nhóm này có {fmt_money(top_issue['revenue_at_risk'])} doanh thu đang gặp rủi ro nếu không xử lý, "
+    f"tỷ lệ trễ {fmt_pct(top_issue['late_rate'])}, {fmt_delay_days(top_issue['sla_gap'])} so với lịch hẹn."
+    if top_issue is not None
+    else "Hãy nới bộ lọc hoặc chọn chế độ tất cả đơn hàng để xem lại thứ tự ưu tiên."
+)
 
-                    n_features = len(feature_order)
-                    feature_to_idx = {feat: (n_features - 1 - i) for i, feat in enumerate(feature_order)}
-                    melted['feature_idx'] = melted['feature'].map(feature_to_idx)
-                    melted['feature_idx_jitter'] = melted['feature_idx'] + np.random.uniform(-0.25, 0.25, len(melted))
-                    
-                    fig_fi = px.scatter(melted, x='shap_value', y='feature_idx_jitter', 
-                                      color='shap_value', 
-                                      color_continuous_scale='RdBu_r')
-                    
-                    fig_fi.update_traces(marker=dict(size=6, opacity=0.8, line=dict(width=0)))
-                    fig_fi.add_vline(x=0, line_width=1, line_color="#94A3B8", line_dash="dash")
-                    
-                    fig_fi.update_layout(
-                        title="SHAP Beeswarm Plot (Phân bố chi tiết tác động)",
-                        xaxis_title="SHAP Value (Tác động lên rủi ro)",
-                        yaxis_title="",
-                        coloraxis_colorbar=dict(title="Tác động", thicknessmode="pixels", thickness=15),
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        margin=dict(t=50, b=20, l=20, r=20),
-                        font_family="'Plus Jakarta Sans', sans-serif",
-                        font_color="#334155"
-                    )
-                    fig_fi.update_xaxes(showgrid=True, gridcolor="#F1F5F9", linecolor="#E2E8F0")
-                    fig_fi.update_yaxes(
-                        tickvals=list(range(n_features)),
-                        ticktext=list(reversed(feature_order)),
-                        showgrid=True, gridwidth=1, gridcolor='#F1F5F9', linecolor="#E2E8F0"
-                    )
-                    
-                    col_fi1, col_fi2 = st.columns(2)
-                    with col_fi1:
-                        st.plotly_chart(fig_bar, use_container_width=True)
-                    with col_fi2:
-                        st.plotly_chart(fig_fi, use_container_width=True)
-                except Exception as e:
-                    import traceback
-                    with open("shap_error.log", "w") as f:
-                        f.write(traceback.format_exc())
-                    st.error(f"Lỗi khi vẽ biểu đồ SHAP: {str(e)}")
-            else:
-                st.warning("Không tìm thấy dữ liệu ml_predictions_explained.")
-
-        # 4. So sánh rủi ro theo nhóm (Drill-down)
-        with st.container(border=True):
-            st.markdown("<h4>📊 PHÂN TÍCH SO SÁNH RỦI RO THEO NHÓM DỰ ĐOÁN (AI RISK PATTERNS)</h4>", unsafe_allow_html=True)
-            st.markdown("<p class='sub-text' style='font-size:14px; margin-bottom: 20px;'>So sánh tỷ lệ xác suất rủi ro trung bình được dự đoán bởi mô hình AI theo phương thức vận chuyển và khu vực.</p>", unsafe_allow_html=True)
-            
-            fig_ship_risk = px.bar(
-                ship_risk, 
-                x='shipping_mode', 
-                y='avg_risk', 
-                title="Xác suất Rủi ro AI dự đoán theo Shipping Mode (%)", 
-                color='avg_risk', 
-                color_continuous_scale=['#93C5FD', '#2563EB']
-            )
-            fig_ship_risk.update_traces(marker_line_width=0, opacity=0.9, width=0.4)
-            fig_ship_risk.update_layout(xaxis_title="", yaxis_title="", coloraxis_showscale=False, margin=dict(t=50, b=20, l=20, r=20))
-            fig_ship_risk = apply_light_theme(fig_ship_risk)
-            
-            fig_region_risk = px.bar(
-                region_risk, 
-                x='avg_risk', 
-                y='order_region', 
-                orientation='h', 
-                title="Top 10 Khu vực có Rủi ro AI dự đoán cao nhất (%)", 
-                color='avg_risk', 
-                color_continuous_scale=['#C4B5FD', '#7C3AED']
-            )
-            fig_region_risk.update_traces(marker_line_width=0, opacity=0.9)
-            fig_region_risk.update_layout(xaxis_title="", yaxis_title="", yaxis={'categoryorder':'total ascending'}, coloraxis_showscale=False, margin=dict(t=50, b=20, l=20, r=20))
-            fig_region_risk = apply_light_theme(fig_region_risk)
-            
-            col_risk1, col_risk2 = st.columns(2)
-            with col_risk1:
-                st.plotly_chart(fig_ship_risk, use_container_width=True)
-            with col_risk2:
-                st.plotly_chart(fig_region_risk, use_container_width=True)
-
-        # 5. Mô hình giả lập dự báo đơn hàng mới
-        with st.container(border=True):
-            st.markdown("<h4>🔮 GIẢ LẬP DỰ BÁO ĐƠN HÀNG MỚI (REAL-TIME PREDICTION SIMULATOR)</h4>", unsafe_allow_html=True)
-            st.markdown("<p class='sub-text' style='font-size:14px; margin-bottom: 20px;'>Nhập các thông số của đơn hàng mới để mô hình AI phân tích và dự báo nguy cơ trễ hạn trực tiếp.</p>", unsafe_allow_html=True)
-            
-            @st.cache_data(ttl=3600)
-            def get_simulator_options():
-                ship_modes = con.execute("SELECT DISTINCT shipping_mode FROM my_db.main.ml_predictions_explained ORDER BY 1").df()['shipping_mode'].tolist()
-                regions = con.execute("SELECT DISTINCT order_region FROM my_db.main.ml_predictions_explained ORDER BY 1").df()['order_region'].tolist()
-                types = con.execute("SELECT DISTINCT order_type FROM my_db.main.ml_predictions_explained ORDER BY 1").df()['order_type'].tolist()
-                segments = con.execute("SELECT DISTINCT customer_segment FROM my_db.main.ml_predictions_explained ORDER BY 1").df()['customer_segment'].tolist()
-                weekdays = sorted(con.execute("SELECT DISTINCT order_weekday FROM my_db.main.ml_predictions_explained").df()['order_weekday'].tolist())
-                months = sorted(con.execute("SELECT DISTINCT order_month FROM my_db.main.ml_predictions_explained").df()['order_month'].tolist())
-                return ship_modes, regions, types, segments, weekdays, months
-
-            ship_modes, regions, types, segments, weekdays, months = get_simulator_options()
-            
-            sim_col1, sim_col2 = st.columns(2)
-            with sim_col1:
-                sim_ship = st.selectbox("Phương thức Vận chuyển", ship_modes, key="sim_ship")
-                sim_region = st.selectbox("Khu vực Giao hàng", regions, key="sim_region")
-                sim_type = st.selectbox("Hình thức Thanh toán (Order Type)", types, key="sim_type")
-                sim_segment = st.selectbox("Phân khúc Khách hàng", segments, key="sim_segment")
-            with sim_col2:
-                sim_days = st.slider("Số ngày giao hàng dự kiến (Scheduled Days)", 0, 10, 4, key="sim_days")
-                sim_month = st.selectbox("Tháng đặt hàng", months, index=0, key="sim_month")
-                sim_weekday = st.selectbox("Thứ đặt hàng", weekdays, index=0, key="sim_weekday")
-                
-            if st.button("🚀 CHẠY DỰ BÁO RỦI RO", type="primary", use_container_width=True):
-                query_exact = f"""
-                SELECT AVG(predicted_probability) as prob
-                FROM my_db.main.ml_predictions_explained
-                WHERE shipping_mode = '{sim_ship}'
-                  AND order_region = '{sim_region}'
-                  AND order_type = '{sim_type}'
-                  AND customer_segment = '{sim_segment}'
-                  AND order_month = '{sim_month}'
-                """
-                res_exact = con.execute(query_exact).df()
-                prob = res_exact['prob'].iloc[0] if not res_exact.empty and not pd.isna(res_exact['prob'].iloc[0]) else None
-                
-                if prob is None:
-                    query_fallback = f"""
-                    SELECT AVG(predicted_probability) as prob
-                    FROM my_db.main.ml_predictions_explained
-                    WHERE shipping_mode = '{sim_ship}'
-                      AND order_region = '{sim_region}'
-                    """
-                    res_fb = con.execute(query_fallback).df()
-                    prob = res_fb['prob'].iloc[0] if not res_fb.empty and not pd.isna(res_fb['prob'].iloc[0]) else 0.55
-                
-                if sim_days <= 1:
-                    prob = min(0.99, prob * 1.35)
-                elif sim_days <= 2:
-                    prob = min(0.95, prob * 1.20)
-                elif sim_days >= 5:
-                    prob = max(0.01, prob * 0.70)
-                    
-                pred_label = 1 if prob >= 0.5 else 0
-                pred_status = "⚠️ NGUY CƠ TRỄ HẠN CAO" if pred_label == 1 else "✅ TIẾN ĐỘ AN TOÀN"
-                pred_color = "#EF4444" if pred_label == 1 else "#10B981"
-                bg_alert = "rgba(239, 68, 68, 0.08)" if pred_label == 1 else "rgba(16, 185, 129, 0.08)"
-                
-                st.markdown(f"""
-                <div style="background-color: {bg_alert}; border-left: 6px solid {pred_color}; padding: 20px; border-radius: 8px; margin-top: 20px;">
-                    <h3 style="color: {pred_color}; margin: 0 0 10px 0; font-weight: 800;">{pred_status}</h3>
-                    <p style="margin: 0; font-size: 16px; color: #0F172A; font-weight: 600;">
-                        Xác suất xảy ra rủi ro trễ hạn: <span style="font-size: 22px; color: {pred_color}; font-weight: 800;">{prob*100:.1f}%</span>
-                    </p>
-                    <p style="margin: 5px 0 0 0; font-size: 13px; color: #475569;">
-                        *Kết quả phân tích dựa trên học máy của mô hình RandomForest Classifier huấn luyện trên tập dữ liệu Supply Chain toàn cầu.*
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
-
-        # ─── AI Quick Insight ───
-        with st.container(border=True):
-            st.markdown("<h4>🤖 AI Quick Insight</h4>", unsafe_allow_html=True)
-            
-            top_risky_txt = top_risky_df[['Order ID', 'Xác suất rủi ro', 'Doanh thu']].head(3).to_string(index=False) if not top_risky_df.empty else "N/A"
-            ship_risk_txt = ship_risk.to_string(index=False) if not ship_risk.empty else "N/A"
-            region_risk_txt = region_risk.to_string(index=False) if not region_risk.empty else "N/A"
-
-            ai_model_context = f"""
-            * Chỉ số mô hình: Đơn rủi ro cao={risk_count}, Giá trị đe dọa=${sales_risk:,.0f}, AUC={auc_val:.3f}
-            * Top đơn hàng nguy cơ cao nhất hệ thống:\n{top_risky_txt}
-            * Mức độ rủi ro trung bình theo Phương thức vận chuyển:\n{ship_risk_txt}
-            * Mức độ rủi ro trung bình theo Khu vực:\n{region_risk_txt}
-            """
-
-            with st.spinner("⚡ AI đang tự động tổng hợp dữ liệu và trích xuất Insight..."):
-                from groq import Groq
-                try:
-                    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-                    resp = client.chat.completions.create(
-                        model="llama-3.1-8b-instant",
-                        messages=[
-                            {
-                                "role": "system", 
-                                "content": (
-                                    "Bạn là Chuyên gia Khoa học Dữ liệu Chuỗi cung ứng cấp cao.\n"
-                                    "Nhiệm vụ của bạn là đưa ra ĐÚNG 3 Insight dự báo rủi ro chuyên sâu bằng tiếng Việt.\n\n"
-                                    "QUY TẮC ĐẶT TIÊU ĐỀ (BẮT BUỘC):\n"
-                                    "- Tiêu đề phải bắt đầu bằng '### Insight 1:', '### Insight 2:', '### Insight 3:'.\n"
-                                    "- Tên tiêu đề phải giật trực diện, chỉ thẳng vào BẢN CHẤT HOẶC ĐIỂM NGHẼN rủi ro lớn nhất từ mô hình AI, không viết chung chung.\n"
-                                    "  * Ví dụ tốt: '### Insight 2: Phương thức vận chuyển First Class là nguồn cơn chính gây trễ hạn'\n"
-                                    "  * Ví dụ xấu: '### Insight 2: Phân tích mức độ rủi ro theo các phương thức vận chuyển'\n\n"
-                                    "QUY TẮC VIẾT NỘI DUNG (GẠCH ĐẦU DÒNG & ĐẮT GIÁ):\n"
-                                    "- Dưới mỗi insight, chỉ viết từ 2 đến 3 gạch đầu dòng ngắn gọn.\n"
-                                    "- Gạch đầu dòng đầu tiên: Đưa ra nhận định tổng quan kèm THEO ĐÚNG 1 ĐẾN 2 CON SỐ ĐẮT GIÁ NHẤT từ dữ liệu (ví dụ: số đơn hàng bị đe dọa, giá trị tổn thất cao nhất hoặc khu vực có phần trăm rủi ro lớn nhất) để làm dẫn chứng thuyết phục. TUYỆT ĐỐI KHÔNG LIỆT KÊ TOÀN BỘ DANH SÁCH số liệu thô.\n"
-                                    "- Gạch đầu dòng tiếp theo: Đề xuất giải pháp ứng phó hoặc giảm thiểu rủi ro (Risk Mitigation) chủ động dựa trên điểm nghẽn đó."
-                                )
-                            },
-                            {
-                                "role": "user", 
-                                "content": (
-                                    f"Dựa trên dữ liệu phân tích dự báo AI sau đây:\n{ai_model_context}\n\n"
-                                    "Hãy viết 3 bài phân tích Insight theo đúng quy tắc đặt tiêu đề trực diện vào điểm nghẽn và định dạng gạch đầu dòng kèm số liệu đắt giá."
-                                )
-                            },
-                        ],
-                        temperature=0.15, 
-                        max_tokens=800,    
-                    )
-                    st.info(resp.choices[0].message.content)
-                except Exception as e:
-                    st.error(f"Lỗi gọi AI Quick Insight tự động: {e}")
-
-    # Gọi fragment
-    render_module2_content()
-    
-# ---------------------------------------------------------
-# MODULE 3: GenBI Insight (Text-to-SQL)
-# ---------------------------------------------------------
-elif menu_selection == "GenBI Insight":
-    from groq import Groq
-    import re
-
-    # ── CSS riêng cho GenBI ──────────────────────────────────
-    st.markdown("""
-    <style>
-    /* ── Suggestion pills ── */
-    .pill-grid {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin: 14px 0 22px 0;
-    }
-    .pill-label {
-        font-size: 12px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-        color: #64748B;
-        margin-bottom: 10px;
-    }
-
-    /* ── Question preview bubble ── */
-    .q-bubble {
-        background: linear-gradient(135deg, #EEF2FF, #F0F9FF);
-        border-left: 4px solid #6366F1;
-        border-radius: 0 12px 12px 0;
-        padding: 14px 18px;
-        margin: 14px 0;
-        font-size: 15px;
-        font-weight: 600;
-        color: #312E81;
-    }
-    .q-bubble-icon { margin-right: 8px; }
-
-    /* ── SQL expander polish ── */
-    .sql-block {
-        background: #0F172A;
-        border-radius: 12px;
-        border: 1px solid #1E293B;
-        padding: 20px;
-        margin: 16px 0;
-    }
-    .sql-block-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: #94A3B8;
-        font-size: 13px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-        margin-bottom: 12px;
-    }
-    .sql-dot { width:8px;height:8px;border-radius:50%; display:inline-block; }
-
-    /* ── Data table section ── */
-    .data-section-title {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 15px;
-        font-weight: 700;
-        color: #0F172A;
-        margin: 20px 0 10px 0;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #E2E8F0;
-    }
-
-    /* ── AI Answer card ── */
-    .answer-card {
-        background: #FFFFFF;
-        border-radius: 16px;
-        border: 1px solid #E2E8F0;
-        box-shadow: 0 4px 24px -4px rgba(15,23,42,0.10);
-        padding: 28px 32px;
-        margin: 20px 0;
-    }
-    .answer-card-header {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 8px;
-        padding-bottom: 6px;
-        border-bottom: 1px solid #F1F5F9;
-    }
-    .answer-avatar {
-        width: 40px; height: 40px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #6366F1, #3B82F6);
-        display: flex; align-items: center; justify-content: center;
-        font-size: 18px;
-        flex-shrink: 0;
-    }
-    .answer-meta { flex: 1; }
-    .answer-name {
-        font-size: 14px; font-weight: 800; color: #0F172A; margin: 0;
-    }
-    .answer-time {
-        font-size: 12px; color: #94A3B8; margin: 0;
-    }
-    .answer-body {
-        color: #1E293B;
-        font-size: 15px;
-        line-height: 1.75;
-    }
-
-    /* ── History accordion ── */
-    .history-title {
-        display: flex; align-items: center; gap: 10px;
-        font-size: 16px; font-weight: 800; color: #0F172A;
-        margin: 32px 0 14px 0;
-        padding-top: 24px;
-        border-top: 2px dashed #E2E8F0;
-    }
-    .history-chip {
-        background: #F1F5F9;
-        color: #475569;
-        font-size: 12px;
-        font-weight: 700;
-        padding: 3px 10px;
-        border-radius: 100px;
-    }
-
-    /* ── Input area ── */
-    .input-section {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 16px;
-        padding: 24px 28px;
-        box-shadow: 0 2px 12px -2px rgba(15,23,42,0.06);
-        margin-bottom: 20px;
-    }
-    .input-section-label {
-        font-size: 13px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.7px;
-        color: #64748B;
-        margin-bottom: 10px;
-    }
-    
-    /* ── Metric Boxes & Badges ── */
-    .metric-box {
-        background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        padding: 1rem;
-        text-align: center;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-    }
-    .metric-box .metric-val {
-        font-size: 1.6rem;
-        font-weight: 700;
-        color: #6366f1;
-    }
-    .metric-box .metric-lbl {
-        font-size: 0.78rem;
-        color: #6b7280;
-        margin-top: 0.2rem;
-    }
-    .sql-badge {
-        display: inline-block;
-        background: #0ea5e9;
-        color: white;
-        padding: 0.2rem 0.6rem;
-        border-radius: 12px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        margin-bottom: 0.4rem;
-    }
-    .ai-badge {
-        display: inline-block;
-        background: #f59e0b;
-        color: white;
-        padding: 0.2rem 0.6rem;
-        border-radius: 12px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        margin-bottom: 0.4rem;
-    }
-    .question-badge {
-        display: inline-block;
-        background: #6366f1;
-        color: white;
-        padding: 0.25rem 0.75rem;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        margin-bottom: 0.6rem;
-    }
-    .genbi-history-card {
-        background: #fafafa;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        padding: 0.8rem 1.2rem;
-        margin: 0.4rem 0;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    # ── HERO HEADER ──────────────────────────────────────────
-    st.markdown("""
-    <div class="genbi-hero">
-        <div class="genbi-badge">✦ Powered by Groq · LLM</div>
-        <div class="genbi-hero-title">GenBI - <span>Trợ lý phân tích</span></div>
-        <p class="genbi-hero-sub">AI tự sinh câu truy vấn SQL theo câu hỏi của bạn, chạy thật trên dữ liệu, rồi diễn giải kết quả bằng ngôn ngữ tự nhiên.</p>
+st.markdown(
+    f"""
+    <div class="crisis-panel">
+        <div class="crisis-kicker">Cảnh báo vận hành cần xử lý ngay</div>
+        <div class="crisis-title">{fmt_pct(late_rate)} đơn hàng đang giao trễ hoặc có nguy cơ trễ</div>
+        <p class="crisis-copy">
+            Vấn đề ưu tiên hiện tại là {html_escape(top_issue_name)}. 
+            Mức này {target_compare_text}; {late_delta_text}. 
+            Dữ liệu đang dùng là dữ liệu lịch sử tham chiếu {data_window}, phục vụ nhận diện mẫu rủi ro và ưu tiên xử lý.
+        </p>
+        <div class="crisis-metrics">
+            <div class="crisis-metric"><b>{fmt_num(late_orders)}</b><span>Đơn đã trễ hoặc có nguy cơ trễ theo dữ liệu vận hành</span></div>
+            <div class="crisis-metric"><b>{fmt_money(revenue_at_risk)}</b><span>Doanh thu đang gặp rủi ro nếu không xử lý; {risk_delta_text}</span></div>
+            <div class="crisis-metric"><b>{capitalize_first(fmt_delay_days(sla_gap))}</b><span>Độ lệch lịch hẹn trung bình toàn hệ thống</span></div>
+        </div>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True,
+)
 
-    # ── Schema & cấu hình ───────────────────────────────────
-    SCHEMA_DESCRIPTION = """
-Bảng: my_db.main.ml_predictions_explained
-Cột: order_id (VARCHAR), shipping_mode (VARCHAR), customer_state (VARCHAR), order_type (VARCHAR),
-order_region (VARCHAR), order_weekday (VARCHAR), order_month (VARCHAR), customer_segment (VARCHAR),
-actual (BIGINT - kết quả thực tế: 1=trễ, 0=đúng hạn),
-predicted_probability (DOUBLE - xác suất rủi ro trễ hạn 0.0 đến 1.0),
-predicted_label (BIGINT - nhãn dự đoán: 1=trễ, 0=đúng hạn), created_at (VARCHAR),
-các cột shap_shipping_mode, shap_customer_state, shap_order_type, shap_order_region,
-shap_order_weekday, shap_order_month, shap_customer_segment (DOUBLE - SHAP values).
+section(1, "Tình hình hiện tại", "Các chỉ số nền để đánh giá mức độ nghiêm trọng và tác động tài chính.")
+st.markdown(
+    f"""
+    <div class="kpi-grid">
+        {kpi_card("Doanh thu", fmt_full_money(revenue), revenue_delta_text, "blue")}
+        {kpi_card("Lợi nhuận", fmt_full_money(profit), f"Biên lợi nhuận {fmt_pct(margin)}; {profit_delta_text}", "green" if margin >= 10 else "amber")}
+        {kpi_card("Đơn hàng", fmt_num(orders), f"{orders_delta_text}; {fmt_num(late_orders)} đơn có rủi ro trễ", "blue")}
+        {kpi_card("Tỷ lệ giao trễ", fmt_pct(late_rate), f"Ngưỡng mục tiêu {target_late_rate:.0f}%; {late_delta_text}", "red" if sev_class == "red" else "amber")}
+        {kpi_card("Độ lệch lịch hẹn", fmt_delay_days(sla_gap), f"Tính trên toàn bộ đơn; {sla_delta_text}", "red" if sla_gap >= 1.5 else "amber" if sla_gap >= 0.75 else "green")}
+        {kpi_card("Tỷ lệ hủy", fmt_pct(cancel_rate), f"{cancel_delta_text}; giảm giá TB {fmt_money(avg_discount)}", "amber" if cancel_rate >= 3 else "green")}
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-Bảng: my_db.main.ml_performance_metrics
-Cột: model_name (VARCHAR), auc (DOUBLE), f1 (DOUBLE), best_threshold (DOUBLE), created_at (VARCHAR).
+process_col1, process_col2 = st.columns([7, 5])
+with process_col1:
+    st.markdown(
+        f"""
+        <div class="process-line">
+            <div class="process-node"><b>Cung ứng hàng hóa</b><span>Giảm giá TB {fmt_money(avg_discount)}; ưu tiên chuẩn bị hàng cho danh mục có rủi ro.</span></div>
+            <div class="process-node"><b>Sản phẩm & danh mục</b><span>{len(product_df)} nhóm sản phẩm đang được theo dõi theo lợi nhuận và giao hàng.</span></div>
+            <div class="process-node"><b>Kinh doanh</b><span>Doanh thu {fmt_money(revenue)}; hủy đơn {fmt_pct(cancel_rate)}.</span></div>
+            <div class="process-node"><b>Phân phối</b><span>Giao trễ {fmt_pct(late_rate)}; {fmt_delay_days(sla_gap)}.</span></div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+with process_col2:
+    if not delivery_df.empty:
+        delivery_chart_df = delivery_df.copy()
+        def delivery_color_key(status):
+            status_text = str(status).lower()
+            if "late" in status_text:
+                return "Trễ"
+            if "cancel" in status_text:
+                return "Hủy"
+            if "on time" in status_text:
+                return "Đúng hạn"
+            if "advance" in status_text:
+                return "Sớm hơn hẹn"
+            return "Khác"
 
-Bảng: my_db.main.ml_feature_importance
-Cột: feature (VARCHAR), importance_score (DOUBLE), created_at (VARCHAR).
-"""
+        delivery_chart_df["Nhóm trạng thái"] = delivery_chart_df["delivery_status"].apply(delivery_color_key)
+        fig_delivery = px.bar(
+            delivery_chart_df,
+            x="delivery_status",
+            y="orders",
+            color="Nhóm trạng thái",
+            color_discrete_map={
+                "Đúng hạn": "#10B981",
+                "Sớm hơn hẹn": "#2563EB",
+                "Trễ": "#DC2626",
+                "Hủy": "#7F1D1D",
+                "Khác": "#6B7280",
+            },
+            title="Trạng thái giao hàng",
+        )
+        fig_delivery.update_layout(showlegend=False, xaxis_title="", yaxis_title="Số đơn")
+        st.plotly_chart(apply_chart_theme(fig_delivery, 255), use_container_width=True)
 
-    ALLOWED_TABLES = [
-        "my_db.main.ml_predictions_explained",
-        "my_db.main.ml_performance_metrics",
-        "my_db.main.ml_feature_importance",
-        "ml_predictions_explained",
-        "ml_performance_metrics",
-        "ml_feature_importance",
-    ]
 
-    def is_safe_select(sql: str) -> bool:
-        """Kiểm tra câu SQL là SELECT/WITH an toàn, không có lệnh nguy hiểm."""
-        s = sql.strip().rstrip(";").strip()
-        lowered = s.lower()
-
-        # Cho phép SELECT hoặc WITH ... SELECT (CTE)
-        if not (lowered.startswith("select") or lowered.startswith("with")):
-            return False
-
-        # Chặn các lệnh nguy hiểm (dùng cụm từ để tránh false positive trên tên cột)
-        forbidden = [
-            "insert into", "update ", "delete ", "drop ",
-            "alter ", "attach ", "detach ", "create ",
-            "grant ", "pragma", "copy ", "export ", "truncate",
-        ]
-        for kw in forbidden:
-            if kw in lowered:
-                return False
-
-        # Phải truy vấn đúng bảng được phép (full path hoặc short name)
-        if not any(t in lowered for t in ALLOWED_TABLES):
-            return False
-
-        return True
-
-    def extract_sql(text: str) -> str:
-        match = re.search(r"```sql\s*(.*?)```", text, re.DOTALL | re.IGNORECASE)
-        if match:
-            return match.group(1).strip()
-        match = re.search(r"```\s*(.*?)```", text, re.DOTALL)
-        if match:
-            return match.group(1).strip()
-        return text.strip()
-
-    def style_df(df):
-        """Format và style dataframe kết quả."""
-        import pandas as pd
-        df = df.copy()
-        if "predicted_probability" in df.columns:
-            df["predicted_probability"] = pd.to_numeric(df["predicted_probability"], errors="coerce")
-        if "predicted_label" in df.columns:
-            df["predicted_label"] = df["predicted_label"].map({1: "🔴 Trễ", 0: "🟢 Đúng hạn"}).fillna(df["predicted_label"])
-        if "actual" in df.columns:
-            df["actual"] = df["actual"].map({1: "🔴 Trễ", 0: "🟢 Đúng hạn"}).fillna(df["actual"])
-        return df
-
-    # ── Suggestions ─────────────────────────────────────────
-    SQL_SUGGESTIONS = [
-        "Top 5 đơn hàng có xác suất rủi ro trễ (predicted_probability) cao nhất?",
-        "Phương thức vận chuyển (shipping_mode) nào có tỷ lệ predicted_label=1 cao nhất?",
-        "Khu vực (order_region) nào có AVG(predicted_probability) cao nhất?",
-        "Phân khúc khách hàng (customer_segment) nào có tỷ lệ predicted_label=1 cao nhất?",
-    ]
-    ANALYTICAL_SUGGESTIONS = [
-        "Đề xuất 3 hành động cụ thể để giảm tỷ lệ giao hàng trễ?",
-        "Khu vực nào cần ưu tiên cải thiện logistics và vì sao?",
-        "Phương thức vận chuyển nào đang rủi ro nhất, giải pháp là gì?",
-    ]
-
-    ANALYTICAL_CONTEXT = """
-Thông tin tổng quan từ dữ liệu Supply Chain (DataCo):
-- Tổng số đơn hàng: ~180,000 giao dịch
-- Mô hình dự báo: CatBoost, AUC ≈ 0.90
-- Phương thức vận chuyển: Standard Class có tỷ lệ trễ cao nhất (~60%),
-  First Class và Second Class ở mức trung bình (~40%), Same Day thấp nhất
-- Khu vực rủi ro cao: Western Europe, Central America, Southern Asia
-- Yếu tố SHAP quan trọng nhất: shipping_mode, order_type, customer_segment, order_region
-- Mùa cao điểm (tháng 11-12) làm tăng xác suất trễ đáng kể
-"""
-
-    # ── Reset state ──────────────────────────────────────────
-    if st.session_state.pop("genbi_pill_clear", False):
-        st.session_state["genbi_textarea"] = ""
-
-    if st.session_state.get("genbi_reset", False):
-        st.session_state["genbi_select"]  = "-- Chọn câu hỏi --"
-        st.session_state["genbi_textarea"] = ""
-        for k in ["genbi_answer", "genbi_sql", "genbi_sql_result", "genbi_last_question"]:
-            st.session_state.pop(k, None)
-        st.session_state["genbi_reset"] = False
-
-   # ── Input area ───────────────────────────────────────────
-    with st.container(border=True):
-        user_typed = st.text_area(
-            "✏️ Nhập câu hỏi của bạn tại đây:",
-            height=80,
-            key="genbi_textarea",
-            placeholder="Ví dụ: Tháng nào có tỷ lệ giao trễ cao nhất?",
+section(
+    2,
+    "Điểm nghẽn cần xử lý",
+    "Xếp hạng chính theo số tiền bị ảnh hưởng; độ lệch lịch hẹn dùng để hiểu mức chậm, không phải tiêu chí duy nhất.",
+)
+problem_col1, problem_col2 = st.columns([4, 8])
+with problem_col1:
+    tone = "critical" if sev_class == "red" else "warning" if sev_class == "amber" else "good"
+    st.markdown(
+        manager_card(
+            "Điểm nghẽn ưu tiên",
+            top_issue_name,
+            top_issue_copy,
+            tone,
+        ),
+        unsafe_allow_html=True,
+    )
+    if not ml_risk_df.empty:
+        ml_row = ml_risk_df.iloc[0]
+        st.markdown(
+            manager_card(
+                "Tín hiệu dự báo",
+                f"{fmt_num(ml_row.get('predicted_risk_orders'))} đơn rủi ro cao",
+                (
+                    f"Đây là tín hiệu bổ sung từ bảng dự báo ML, không cộng trực tiếp với "
+                    f"{fmt_num(late_orders)} đơn đã trễ hoặc có nguy cơ trễ theo dữ liệu vận hành. "
+                    f"Xác suất dự báo trung bình của nhóm này là {fmt_pct(ml_row.get('avg_predicted_risk'))}."
+                ),
+                "warning",
+            ),
+            unsafe_allow_html=True,
+        )
+with problem_col2:
+    if not priority_df.empty:
+        priority_view = priority_df.copy().reset_index(drop=True)
+        priority_view["Mức"] = priority_view.index.map(lambda pos: priority_level(pos, len(priority_view)))
+        if "late_rate_delta" in priority_view.columns:
+            priority_view["Xu hướng"] = priority_view["late_rate_delta"].apply(trend_label)
+        else:
+            priority_view["Xu hướng"] = "Chưa đủ dữ liệu"
+        priority_view["Điểm nghẽn"] = priority_view.apply(short_issue, axis=1)
+        priority_view["Độ lệch lịch hẹn"] = priority_view["sla_gap"].apply(fmt_delay_days)
+        priority_view = priority_view[
+            ["Mức", "Xu hướng", "Điểm nghẽn", "late_orders", "revenue_at_risk", "late_rate", "Độ lệch lịch hẹn", "margin"]
+        ].rename(
+            columns={
+                "late_orders": "Đơn trễ",
+                "revenue_at_risk": "Doanh thu đang gặp rủi ro",
+                "late_rate": "Trễ (%)",
+                "margin": "Biên lợi nhuận (%)",
+            }
+        )
+        st.dataframe(
+            priority_view.style.format(
+                {
+                    "Doanh thu đang gặp rủi ro": "${:,.0f}",
+                    "Trễ (%)": "{:.1f}",
+                    "Biên lợi nhuận (%)": "{:.1f}",
+                }
+            ).map(table_signal_style, subset=["Mức", "Xu hướng"]),
+            use_container_width=True,
+            hide_index=True,
+            height=330,
         )
 
-        # Câu hỏi gợi ý dạng 2 cột
-        st.markdown("""
-        <div style="margin:0.6rem 0 0.3rem 0;">
-            <span class="pill-label">💡 Câu hỏi gợi ý</span>
-        </div>
-        <div style="display:flex;gap:0.8rem;margin-bottom:0.2rem;">
-            <span style="font-size:0.75rem;color:#6366f1;font-weight:600;">🔍 Truy vấn dữ liệu (SQL)</span>
-            <span style="font-size:0.75rem;color:#f59e0b;font-weight:600;margin-left:auto;margin-right:1rem;">🧠 Phân tích chuyên sâu</span>
-        </div>
-        """, unsafe_allow_html=True)
-
-        col_sql, col_ana = st.columns(2)
-        with col_sql:
-            for q in SQL_SUGGESTIONS:
-                if st.button(q, key=f"sq_{q[:20]}", use_container_width=True):
-                    st.session_state["genbi_select"] = q
-                    st.session_state["genbi_pill_clear"] = True
-                    st.rerun()
-        with col_ana:
-            for q in ANALYTICAL_SUGGESTIONS:
-                if st.button(q, key=f"aq_{q[:20]}", use_container_width=True):
-                    st.session_state["genbi_select"] = q
-                    st.session_state["genbi_pill_clear"] = True
-                    st.rerun()
-
-        selected_q = st.session_state.get("genbi_select", "-- Chọn câu hỏi --")
-
-        if user_typed and user_typed.strip():
-            user_question = user_typed.strip()
-        elif selected_q and selected_q != "-- Chọn câu hỏi --":
-            user_question = selected_q
-        else:
-            user_question = ""
-
-        if user_question:
-            st.markdown(
-                f'''<div class="q-bubble"><span class="q-bubble-icon">📝</span><b>Câu hỏi đang chọn:</b> {user_question}</div>''',
-                unsafe_allow_html=True
+chart_col1, chart_col2 = st.columns([6, 6])
+with chart_col1:
+    if not monthly_df.empty:
+        monthly_df = monthly_df.copy()
+        monthly_df["late_ma3"] = monthly_df["late_rate"].rolling(3, min_periods=1).mean()
+        fig_trend = go.Figure()
+        fig_trend.add_trace(
+            go.Scatter(
+                x=monthly_df["month"],
+                y=monthly_df["late_rate"],
+                name="Tỷ lệ trễ",
+                mode="lines",
+                line=dict(color="#CBD5E1", width=2, dash="dot"),
             )
+        )
+        fig_trend.add_trace(
+            go.Scatter(
+                x=monthly_df["month"],
+                y=monthly_df["late_ma3"],
+                name="Trung bình 3 tháng",
+                mode="lines+markers",
+                line=dict(color="#2563EB", width=3),
+            )
+        )
+        fig_trend.update_layout(title="Xu hướng trễ hạn theo thời gian", xaxis_title="", yaxis_title="Trễ (%)")
+        st.plotly_chart(apply_chart_theme(fig_trend, 330), use_container_width=True)
+with chart_col2:
+    if not matrix_df.empty:
+        matrix_pivot = matrix_df.pivot_table(
+            index="order_region", columns="shipping_mode", values="late_rate", aggfunc="mean"
+        ).fillna(0)
+        fig_heat = px.imshow(
+            matrix_pivot,
+            aspect="auto",
+            color_continuous_scale=["#D1FAE5", "#FEF3C7", "#FCA5A5"],
+            text_auto=".1f",
+            title="Bản đồ nhiệt rủi ro: khu vực x phương thức vận chuyển",
+        )
+        fig_heat.update_layout(
+            xaxis_title="",
+            yaxis_title="",
+            coloraxis_colorbar=dict(title="Tỷ lệ trễ (%)"),
+        )
+        st.plotly_chart(apply_chart_theme(fig_heat, 330), use_container_width=True)
 
-        col_btn1, col_btn2, _ = st.columns([1.6, 1.2, 5])
-        with col_btn1:
-            run_clicked = st.button("🚀 Phân tích với AI", type="primary")
-        with col_btn2:
-            clear_clicked = st.button("🗑️ Xóa câu hỏi")
 
-    if clear_clicked:
-        st.session_state["genbi_reset"] = True
-        st.rerun()
-
-    if clear_clicked:
-        st.session_state["genbi_reset"] = True
-        st.rerun()
-    
-    ANSWER_FORMAT_INSTRUCTION = (
-        "Bạn là chuyên gia phân tích chuỗi cung ứng (Supply Chain Analyst) cấp cao, "
-        "có nhiều năm kinh nghiệm tư vấn cho ban giám đốc về logistics và quản trị rủi ro giao hàng. "
-        "Dựa CHÍNH XÁC vào dữ liệu được cung cấp, không tự bịa thêm số liệu nào ngoài những gì đã cho. "
-        "Hãy trả lời bằng tiếng Việt, văn phong chuyên nghiệp nhưng dễ hiểu cho nhà quản lý không rành kỹ thuật. "
-        "LUÔN LUÔN trình bày đầy đủ và chi tiết theo đúng cấu trúc sau, mỗi phần ít nhất 2-3 câu hoặc 2-3 bullet point, "
-        "không trả lời qua loa, không rút gọn:\n\n"
-        "**📊 Nhận xét chi tiết:** Phân tích sâu các số liệu quan trọng nhất trong dữ liệu, "
-        "so sánh giữa các nhóm (nếu có), chỉ ra xu hướng hoặc điểm bất thường đáng chú ý.\n\n"
-        "**⚠️ Đánh giá rủi ro:** Nêu rõ mức độ nghiêm trọng của rủi ro, ảnh hưởng tiềm tàng tới doanh thu/uy tín "
-        "nếu không xử lý, và nguyên nhân gốc rễ có thể gây ra tình trạng này.\n\n"
-        "**✅ Khuyến nghị hành động:** Đề xuất ít nhất 2-3 hành động cụ thể, khả thi, có thể triển khai ngay, "
-        "ưu tiên theo mức độ quan trọng (đánh số 1, 2, 3).\n\n"
-        "**🎯 Kết luận ngắn:** Tóm tắt lại trong 1 câu thông điệp quan trọng nhất gửi tới nhà quản lý."
+section(3, "Nguyên nhân và phương án xử lý", "Tập trung vào tuyến vận chuyển, nhóm sản phẩm và tín hiệu dự báo đang ảnh hưởng lớn nhất.")
+solution_col1, solution_col2 = st.columns([7, 5])
+with solution_col1:
+    if not product_df.empty:
+        fig_product = px.bar(
+            product_df.sort_values("revenue_at_risk", ascending=True),
+            x="revenue_at_risk",
+            y="category_name",
+            color="late_rate",
+            orientation="h",
+            color_continuous_scale=["#10B981", "#D97706", "#DC2626"],
+            title="Danh mục sản phẩm có doanh thu đang gặp rủi ro cao nhất",
+        )
+        fig_product.update_layout(xaxis_title="", yaxis_title="", coloraxis_colorbar_title="Trễ (%)")
+        st.plotly_chart(apply_chart_theme(fig_product, 395), use_container_width=True)
+with solution_col2:
+    root_cause = []
+    if not shipping_df.empty:
+        top_ship = shipping_df.sort_values("revenue_at_risk", ascending=False).iloc[0]
+        root_cause.append(("Vận chuyển", f"{top_ship['shipping_mode']} đang có {fmt_money(top_ship['revenue_at_risk'])} doanh thu gặp rủi ro."))
+    if not product_df.empty:
+        top_product = product_df.iloc[0]
+        root_cause.append(("Danh mục hàng", f"{top_product['category_name']} có {fmt_money(top_product['revenue_at_risk'])} doanh thu gặp rủi ro."))
+    if not ml_features_df.empty:
+        top_feature = ml_features_df.iloc[0]
+        root_cause.append(("Tín hiệu dự báo", f"Yếu tố ảnh hưởng mạnh nhất đến dự báo: {top_feature['feature']}."))
+    if not unstructured_df.empty:
+        root_cause.append(("Tín hiệu truy cập", f"Đã phát hiện {len(unstructured_df)} bảng log/mô tả có thể hỗ trợ phân tích nhu cầu."))
+    rows = ""
+    for label, text in root_cause:
+        rows += f"<div class='alert-row'><div><span class='tag amber'>{html_escape(label)}</span></div><div>{html_escape(capitalize_first(text))}</div></div>"
+    st.markdown(
+        f"""
+        <div class="manager-card alert-card-full">
+            <div class="card-kicker">Gợi ý ưu tiên từ hệ thống</div>
+            {rows}
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    # ── Xử lý phân tích + hiển thị TRONG 1 CARD THẬT ─────────
-    if run_clicked and user_question:
-        with st.container(border=True):
-            header_box = st.empty()
-            header_box.markdown("""
-            <div class="answer-card-header">
-                <div class="answer-avatar">🤖</div>
-                <div class="answer-meta">
-                    <p class="answer-name">Trợ Lý GenBI Insight</p>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
 
-            with st.status("🤖 Trợ lý GenBI đang xử lý...", expanded=True) as status:
-                try:
-                    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-                    is_analytical = user_question in ANALYTICAL_SUGGESTIONS
+def select_priority_callback(idx, all_indices):
+    key = f"select_checkbox_{idx}"
+    checked = st.session_state.get(key, False)
+    if checked:
+        st.session_state["selected_priority_idx"] = idx
+        for other_idx in all_indices:
+            if other_idx != idx:
+                st.session_state[f"select_checkbox_{other_idx}"] = False
+    else:
+        if st.session_state.get("selected_priority_idx") == idx:
+            st.session_state["selected_priority_idx"] = None
 
-                    if is_analytical:
-                        status.update(label="🧠 Đang phân tích chuyên sâu dữ liệu Supply Chain...", state="running")
-                        interpret_resp = client.chat.completions.create(
-                            model="openai/gpt-oss-20b",
-                            messages=[
-                                {"role": "system", "content": ANSWER_FORMAT_INSTRUCTION},
-                                {"role": "user", "content": f"Thông tin dữ liệu:\n{ANALYTICAL_CONTEXT}\n\nCâu hỏi: {user_question}\n\nHãy phân tích đầy đủ và đưa khuyến nghị chi tiết."},
-                            ],
-                            temperature=0.5, max_tokens=1600,
-                        )
-                        st.session_state["genbi_answer"] = interpret_resp.choices[0].message.content
-                        st.session_state["genbi_last_question"] = user_question
-                        st.session_state.pop("genbi_sql", None)
-                        st.session_state.pop("genbi_sql_result", None)
+# Initialize selected priority index to None if not set
+if "selected_priority_idx" not in st.session_state:
+    st.session_state["selected_priority_idx"] = None
 
-                    else:
-                        status.update(label="📝 Bước 1: Đang chuyển đổi câu hỏi thành truy vấn SQL...", state="running")
-                        sql_gen_resp = client.chat.completions.create(
-                            model="openai/gpt-oss-20b",
-                            messages=[
-                                {"role": "system", "content": f"""Bạn là chuyên gia viết SQL cho DuckDB. Dựa trên schema sau, hãy viết ĐÚNG 1 câu SQL SELECT để trả lời câu hỏi.
-{SCHEMA_DESCRIPTION}
+# Initialize checkbox states explicitly ONLY ONCE if not already in session state
+if not priority_df.empty:
+    for idx in priority_df.head(3).index:
+        key = f"select_checkbox_{idx}"
+        if key not in st.session_state:
+            st.session_state[key] = (st.session_state["selected_priority_idx"] == idx)
 
-QUY TẮC BẮT BUỘC:
-- Chỉ viết câu SELECT, không viết INSERT/UPDATE/DELETE/DROP hay bất kỳ lệnh nào khác.
-- Luôn thêm LIMIT (tối đa 50 dòng) trừ khi câu hỏi là dạng tổng hợp (COUNT/AVG/SUM) chỉ trả 1 dòng.
-- Chỉ dùng đúng tên bảng/cột đã cho trong schema, không tự tạo cột không tồn tại.
-- Tên bảng PHẢI viết đầy đủ dạng: my_db.main.ml_predictions_explained
-- Chỉ trả về DUY NHẤT câu SQL, đặt trong khối ```sql ... ```, không giải thích gì thêm."""},
-                                {"role": "user", "content": f"Câu hỏi: {user_question}"},
-                            ],
-                            temperature=0, max_tokens=400,
-                        )
-                        raw_sql = extract_sql(sql_gen_resp.choices[0].message.content)
-                        st.session_state["genbi_sql"] = raw_sql
+# Render Section 4 Title
+section(4, "Hành động ưu tiên cho phạm vi lọc", "")
 
-                        status.update(label="🔍 Bước 2: Kiểm tra an toàn và truy vấn dữ liệu thật...", state="running")
-                        if not is_safe_select(raw_sql):
-                            status.update(label="⚠️ Phát hiện câu lệnh SQL không an toàn!", state="error")
-                            st.error("⚠️ Câu SQL do AI sinh ra không hợp lệ hoặc không an toàn, không thực thi. Vui lòng thử diễn đạt lại câu hỏi.")
-                            st.code(raw_sql, language="sql")
-                        else:
-                            df_result = con.execute(raw_sql).df()
-                            st.session_state["genbi_sql_result"] = df_result
+# Split layout: content on left (9), actions on right (3)
+col_left, col_right = st.columns([9, 3])
 
-                            status.update(label="💡 Bước 3: Đang tổng hợp dữ liệu và lập báo cáo khuyến nghị...", state="running")
-                            result_text = df_result.to_string(index=False) if not df_result.empty else "Không có dữ liệu phù hợp."
-                            interpret_resp = client.chat.completions.create(
-                                model="openai/gpt-oss-20b",
-                                messages=[
-                                    {"role": "system", "content": ANSWER_FORMAT_INSTRUCTION},
-                                    {"role": "user", "content": f"Câu hỏi: {user_question}\n\nKết quả truy vấn dữ liệu thật:\n{result_text}\n\nHãy phân tích đầy đủ và đưa khuyến nghị chi tiết."},
-                                ],
-                                temperature=0.5, max_tokens=1600,
-                            )
-                            st.session_state["genbi_answer"] = interpret_resp.choices[0].message.content
-                            st.session_state["genbi_last_question"] = user_question
+# Resolve currently selected row
+selected_idx = st.session_state.get("selected_priority_idx")
+selected_row = None
+if not priority_df.empty:
+    if selected_idx is not None and selected_idx in priority_df.index:
+        selected_row = priority_df.loc[selected_idx]
 
-                    if "genbi_answer" in st.session_state:
-                        if "genbi_history" not in st.session_state:
-                            st.session_state["genbi_history"] = []
-                        new_entry = (
-                            st.session_state["genbi_last_question"],
-                            st.session_state.get("genbi_sql", "Câu hỏi phân tích chuyên sâu (Không dùng SQL)"),
-                            st.session_state["genbi_answer"],
-                        )
-                        if not any(e[0] == new_entry[0] for e in st.session_state["genbi_history"]):
-                            st.session_state["genbi_history"].append(new_entry)
+with col_left:
+    if not priority_df.empty:
+        # Guarantee checkbox states match selected_priority_idx on new filter loads
+        for idx in priority_df.head(3).index:
+            key = f"select_checkbox_{idx}"
+            if key not in st.session_state:
+                st.session_state[key] = (st.session_state.get("selected_priority_idx") == idx)
 
-                    status.update(label="✅ Phân tích hoàn tất!", state="complete", expanded=False)
-                    header_box.markdown("""
-                    <div class="answer-card-header">
-                        <div class="answer-avatar">🤖</div>
-                        <div class="answer-meta">
-                            <p class="answer-name">Trợ Lý GenBI Insight</p>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                except Exception as e:
-                    status.update(label="❌ Quá trình phân tích gặp lỗi!", state="error")
-                    header_box.markdown("""
-                    <div class="answer-card-header">
-                        <div class="answer-avatar">🤖</div>
-                        <div class="answer-meta">
-                            <p class="answer-name">Trợ Lý GenBI Insight</p>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    st.error(f"Lỗi xử lý: {e}")
-
-            # ---------- Hiển thị SQL + bảng dữ liệu + câu trả lời — VẪN TRONG container ngoài ----------
-            if "genbi_sql" in st.session_state and st.session_state["genbi_sql"]:
-                st.markdown('<div class="sql-block-header">🛠️ CẤU TRÚC TRUY VẤN SQL TỰ SINH</div>', unsafe_allow_html=True)
-                st.code(st.session_state["genbi_sql"], language="sql")
-
-            if "genbi_sql_result" in st.session_state and st.session_state["genbi_sql_result"] is not None:
-                df_raw = st.session_state["genbi_sql_result"]
-                if not df_raw.empty:
-                    st.markdown('<div class="data-section-title">📊 Dữ liệu truy vấn thực tế từ Database</div>', unsafe_allow_html=True)
-                    if "predicted_probability" in df_raw.columns:
-                        import pandas as pd
-                        probs = pd.to_numeric(df_raw["predicted_probability"], errors="coerce").dropna()
-                        c1, c2, c3 = st.columns(3)
-                        c1.markdown(f'<div class="metric-box"><div class="metric-val">{len(df_raw)}</div><div class="metric-lbl">Số đơn hàng</div></div>', unsafe_allow_html=True)
-                        c2.markdown(f'<div class="metric-box"><div class="metric-val" style="color:#dc2626">{probs.max():.1%}</div><div class="metric-lbl">Rủi ro cao nhất</div></div>', unsafe_allow_html=True)
-                        c3.markdown(f'<div class="metric-box"><div class="metric-val" style="color:#f59e0b">{probs.mean():.1%}</div><div class="metric-lbl">Rủi ro trung bình</div></div>', unsafe_allow_html=True)
-                        st.markdown("<br>", unsafe_allow_html=True)
-
-                        df_display = style_df(df_raw)
-                        def highlight_prob(val):
-                            try:
-                                v = float(val)
-                                if v >= 0.8: return "color: #dc2626; font-weight: 700"
-                                elif v >= 0.5: return "color: #f59e0b; font-weight: 600"
-                                else: return "color: #16a34a; font-weight: 600"
-                            except Exception:
-                                return ""
-                        styled = df_display.style.format({"predicted_probability": "{:.1%}"}).map(highlight_prob, subset=["predicted_probability"])
-                        st.dataframe(styled, use_container_width=True, hide_index=True)
-                    else:
-                        st.dataframe(style_df(df_raw), use_container_width=True, hide_index=True)
-
-            if "genbi_answer" in st.session_state:
-                st.markdown('<div class="data-section-title">🧠 Kết luận và Khuyến nghị từ AI</div>', unsafe_allow_html=True)
-                st.markdown(st.session_state["genbi_answer"])
-                st.download_button(
-                    "📥 Tải kết quả (.txt)",
-                    data=st.session_state["genbi_answer"],
-                    file_name="genbi_phan_tich.txt",
-                    key="genbi_download",
+        for rank, (idx, row) in enumerate(priority_df.head(3).iterrows(), start=1):
+            order_title = describe_issue(row)
+            order_copy = (
+                f"{fmt_money(row['revenue_at_risk'])} doanh thu đang gặp rủi ro nếu không xử lý, "
+                f"{fmt_num(row['late_orders'])} đơn trễ, tỷ lệ trễ {fmt_pct(row['late_rate'])}. "
+                f"Khuyến nghị: ưu tiên đơn giá trị cao, kiểm tra năng lực vận chuyển và cập nhật lịch hẹn cho khách."
+            )
+            
+            is_selected = (idx == st.session_state.get("selected_priority_idx"))
+            selected_class = " selected" if is_selected else ""
+            c_checkbox, c_card = st.columns([1, 20])
+            with c_checkbox:
+                st.checkbox(
+                    " ",
+                    key=f"select_checkbox_{idx}",
+                    on_change=select_priority_callback,
+                    args=(idx, list(priority_df.head(3).index))
                 )
+            with c_card:
+                card_html = f"""<div class="card-click-container">
+<div class="work-order{selected_class}" data-rank="{rank}">
+<div class="work-order-title">{html_escape(capitalize_first(order_title))}</div>
+<div class="work-order-copy">{html_escape(order_copy)}</div>
+</div>
+</div>"""
+                st.markdown(card_html, unsafe_allow_html=True)
+    else:
+        st.info("Không có điểm nghẽn đủ điều kiện để hiển thị.")
 
-    # ── LỊCH SỬ PHÂN TÍCH (KHÔNG bọc trong card trên) ───────
-    if st.session_state.get("genbi_history"):
-        st.markdown('<div class="history-title">📜 Lịch sử phân tích gần đây</div>', unsafe_allow_html=True)
-        hist = list(reversed(st.session_state["genbi_history"]))
-        for i, (q, sql, a) in enumerate(hist, 1):
-            label = f"{'🔵 SQL' if sql and 'Không dùng SQL' not in sql else '🟡 Phân tích'} #{len(hist)+1-i} — {q[:65]}{'...' if len(q) > 65 else ''}"
-            with st.expander(label, expanded=False):
-                st.markdown(f'<div class="genbi-history-card"><span class="question-badge">Câu hỏi</span><br>{q}</div>', unsafe_allow_html=True)
-                if sql and "Không dùng SQL" not in sql:
-                    st.markdown('<span class="sql-badge">SQL đã chạy</span>', unsafe_allow_html=True)
+with col_right:
+    st.markdown('<div class="vertical-actions-container">', unsafe_allow_html=True)
+    
+    # Action 1: carrier coordination
+    if st.button("Điều phối vận tải", key="carrier_header_btn", type="primary", use_container_width=True):
+        if selected_row is not None:
+            order_title = describe_issue(selected_row)
+            st.markdown(
+                f"""
+                <div class="modal-backdrop" id="modal-carrier-header" onclick="this.style.display='none'">
+                    <div class="modal-box" onclick="event.stopPropagation()">
+                        <span class="modal-close-btn" onclick="document.getElementById('modal-carrier-header').style.display='none'">&times;</span>
+                        <div class="modal-icon-circle">🔔</div>
+                        <div class="modal-title">Điều phối thành công</div>
+                        <div class="modal-text">Đã gửi yêu cầu điều phối vận tải khẩn cấp đối với nhóm đơn: <br><b>{html_escape(order_title)}</b>. Hệ thống đang tối ưu lộ trình ngầm.</div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.toast("Vui lòng chọn một nhóm đơn hàng ưu tiên bên trái trước!", icon="⚠️")
+            
+    # Action 2: CSV download
+    if selected_row is not None:
+        order_list_df = query_priority_orders(
+            where_clause,
+            selected_row["order_region"],
+            selected_row["shipping_mode"],
+            selected_row["category_name"],
+        )
+        if not order_list_df.empty:
+            order_list_display = rename_for_display(order_list_df)
+            st.download_button(
+                "Tải CSV đơn ưu tiên",
+                data=order_list_display.to_csv(index=False).encode("utf-8-sig"),
+                file_name="don_uu_tien_selected.csv",
+                mime="text/csv",
+                key="priority_header_btn",
+                type="primary",
+                use_container_width=True,
+            )
+        else:
+            st.button("Không có CSV đơn trễ", key="priority_header_empty", type="primary", disabled=True, use_container_width=True)
+    else:
+        if st.button("Tải CSV đơn ưu tiên", key="priority_header_disabled_trigger", type="primary", use_container_width=True):
+            st.toast("Vui lòng chọn một nhóm đơn hàng ưu tiên bên trái trước!", icon="⚠️")
+        
+    # Action 3: customer notification
+    if st.button("Thông báo khách hàng", key="notify_header_btn", type="primary", use_container_width=True):
+        if selected_row is not None:
+            st.markdown(
+                f"""
+                <div class="modal-backdrop" id="modal-notify-header" onclick="this.style.display='none'">
+                    <div class="modal-box" onclick="event.stopPropagation()">
+                        <span class="modal-close-btn" onclick="document.getElementById('modal-notify-header').style.display='none'">&times;</span>
+                        <div class="modal-icon-circle">🔔</div>
+                        <div class="modal-title">Đã phát thông báo</div>
+                        <div class="modal-text">Hệ thống đã tự động gửi thông tin cập nhật lịch trình hẹn mới và lời xin lỗi đến toàn bộ khách hàng thuộc nhóm đơn bị ảnh hưởng.</div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        else:
+            st.toast("Vui lòng chọn một nhóm đơn hàng ưu tiên bên trái trước!", icon="⚠️")
+            
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+with st.container(border=True):
+    st.markdown("#### Bản tóm tắt tự động từ dữ liệu lịch sử")
+    if top_issue is not None:
+        briefing_lines = [
+            f"Điểm cần xử lý trước là {top_issue_name}.",
+            f"Nhóm này có {fmt_money(top_issue['revenue_at_risk'])} doanh thu đang gặp rủi ro nếu không xử lý và {fmt_num(top_issue['late_orders'])} đơn trễ.",
+            f"Tỷ lệ trễ của nhóm là {fmt_pct(top_issue['late_rate'])}, cao hơn ngưỡng mục tiêu {target_late_rate:.0f}%.",
+            "Đề xuất: ưu tiên đơn giá trị cao, kiểm tra năng lực phương thức vận chuyển hiện tại và thông báo lại lịch hẹn cho khách có nguy cơ bị ảnh hưởng.",
+        ]
+        if not unstructured_df.empty:
+            briefing_lines.append("Đã có dữ liệu log/truy cập để hỗ trợ xem tín hiệu nhu cầu trước khi đơn hàng phát sinh.")
+        for line in briefing_lines:
+            st.markdown(f"- {line}")
+    else:
+        st.info("Chưa có đủ dữ liệu để tạo báo cáo tự động trong phạm vi lọc hiện tại.")
+
+
+section(5, "Trợ lý phân tích dữ liệu", "Hỏi nhanh các tình huống vận hành mà không cần tự lọc nhiều biểu đồ.")
+st.markdown("##### Gợi ý câu hỏi phân tích:")
+
+suggestions = [
+    "Top 5 sản phẩm Clothing có doanh thu cao nhất nhưng bị trễ giao hàng trong quý 3?",
+    "Phương thức vận chuyển nào có doanh thu đang gặp rủi ro cao nhất?",
+    "Khu vực nào có tỷ lệ giao trễ cao và biên lợi nhuận thấp?",
+]
+sugg_cols = st.columns(3)
+for i, q in enumerate(suggestions):
+    with sugg_cols[i]:
+        st.markdown('<div class="suggest-pill">', unsafe_allow_html=True)
+        if st.button(q, key=f"suggest_{i}", use_container_width=True):
+            st.session_state["pending_question"] = q
+        st.markdown('</div>', unsafe_allow_html=True)
+
+if "last_question" not in st.session_state:
+    st.session_state["last_question"] = None
+if "last_sql" not in st.session_state:
+    st.session_state["last_sql"] = None
+if "last_result_df" not in st.session_state:
+    st.session_state["last_result_df"] = None
+if "last_insight" not in st.session_state:
+    st.session_state["last_insight"] = None
+if "chat_history" not in st.session_state:
+    st.session_state["chat_history"] = []
+
+question = st.chat_input("Hỏi dữ liệu chuỗi cung ứng...")
+if not question and st.session_state.get("pending_question"):
+    question = st.session_state.pop("pending_question")
+
+if question:
+    client = get_groq_client()
+    if client is None:
+        st.error("Chưa có khóa AI nên chưa dùng được trợ lý phân tích.")
+    else:
+        with st.status("Trợ lý đang phân tích dữ liệu...", expanded=True) as status:
+            try:
+                status.update(label="Đang hiểu câu hỏi và lấy dữ liệu phù hợp.", state="running")
+                sql_response = client.chat.completions.create(
+                    model="openai/gpt-oss-20b",
+                    messages=[
+                        {"role": "system", "content": SCHEMA_CONTEXT},
+                        {"role": "user", "content": question},
+                    ],
+                    temperature=0,
+                    max_tokens=500,
+                )
+                sql = extract_sql(sql_response.choices[0].message.content)
+                if not is_safe_select(sql):
+                    status.update(label="Không thể tạo truy vấn an toàn cho câu hỏi này.", state="error")
                     st.code(sql, language="sql")
-                st.markdown('<span class="ai-badge">Kết quả phân tích</span>', unsafe_allow_html=True)
-                st.markdown(a)
+                else:
+                    status.update(label="Đang truy vấn kho dữ liệu.", state="running")
+                    result_df = con.execute(sql).df()
+                    
+                    try:
+                        status.update(label="Trợ lý AI đang phân tích dữ liệu và lập luận...", state="running")
+                        # Chuyển đổi tối đa 30 dòng dữ liệu thành dạng text để LLM đọc và hiểu bản chất
+                        preview = result_df.head(30).to_string(index=False) if not result_df.empty else "Không có dữ liệu phù hợp."
+                        
+                        # Gọi LLM sinh phản hồi chuyên sâu
+                        insight_response = client.chat.completions.create(
+                            model="openai/gpt-oss-20b",
+                            messages=[
+                                {
+                                    "role": "system",
+                                    "content": (
+                                        "Bạn là chuyên gia phân tích chuỗi cung ứng (Supply Chain Analyst) cấp cao, "
+                                        "có nhiều năm kinh nghiệm tư vấn cho ban giám đốc về logistics và quản trị rủi ro giao hàng. "
+                                        "Dựa CHÍNH XÁC vào dữ liệu được cung cấp, không tự bịa thêm số liệu nào ngoài những gì đã cho. "
+                                        "Hãy trả lời bằng tiếng Việt, văn phong chuyên nghiệp nhưng dễ hiểu cho nhà quản lý không rành kỹ thuật. "
+                                        "LUÔN LUÔN trình bày đầy đủ và chi tiết theo đúng cấu trúc sau, mỗi phần ít nhất 2-3 câu hoặc 2-3 bullet point, "
+                                        "không trả lời qua loa, không rút gọn:\n\n"
+                                        "**Nhận xét chi tiết:** Phân tích sâu các số liệu quan trọng nhất trong dữ liệu, "
+                                        "so sánh giữa các nhóm (nếu có), chỉ ra xu hướng hoặc điểm bất thường đáng chú ý.\n\n"
+                                        "**Đánh giá rủi ro:** Nêu rõ mức độ nghiêm trọng của rủi ro, ảnh hưởng tiềm tàng tới doanh thu/uy tín "
+                                        "nếu không xử lý, và nguyên nhân gốc rễ có thể gây ra tình trạng này.\n\n"
+                                        "**Khuyến nghị hành động:** Đề xuất ít nhất 2-3 hành động cụ thể, khả thi, có thể triển khai ngay, "
+                                        "ưu tiên theo mức độ quan trọng (đánh số 1, 2, 3).\n\n"
+                                        "**Kết luận ngắn:** Tóm tắt lại trong 1 câu thông điệp quan trọng nhất gửi tới nhà quản lý."
+                                    ),
+                                },
+                                {
+                                    "role": "user",
+                                    "content": f"Câu hỏi: {question}\n\nKết quả truy vấn dữ liệu thật:\n{preview}\n\nHãy phân tích đầy đủ và đưa khuyến nghị chi tiết.",
+                                },
+                            ],
+                            temperature=0.5,
+                            max_tokens=1600,
+                        )
+                        
+                        status.update(label="Phân tích hoàn tất! Xem kết quả tại đây.", state="complete", expanded=False)
+                        
+                        # Lưu thông tin phân tích vào session_state để không bị mất khi render lại giao diện
+                        st.session_state["last_question"] = question
+                        st.session_state["last_sql"] = sql
+                        st.session_state["last_result_df"] = result_df
+                        st.session_state["last_insight"] = insight_response.choices[0].message.content
+                        st.session_state["chat_history"].append({
+                            "question": question,
+                            "sql": sql,
+                            "insight": insight_response.choices[0].message.content
+                        })
+                    except Exception as exc:
+                        status.update(label="Trợ lý phân tích gặp lỗi.", state="error")
+                        st.error(f"Lỗi trong quá trình Trợ lý phân tích lập luận chuyên sâu: {exc}")
+                    
+                    st.markdown("##### Câu hỏi")
+                    st.write(question)
+                    with st.expander("Truy vấn dữ liệu đã sử dụng"):
+                        st.code(sql, language="sql")
+                    if not result_df.empty:
+                        display_result_df = rename_for_display(result_df)
+                        auto_fig = make_auto_chart(display_result_df, "Kết quả phân tích từ dữ liệu")
+                        if auto_fig is not None:
+                            st.plotly_chart(auto_fig, use_container_width=True)
+                        st.dataframe(display_result_df, use_container_width=True, hide_index=True)
+                        
+                    st.markdown("##### Nhận định và hành động đề xuất")
+                    st.markdown(st.session_state["last_insight"])
+                    
+                    # Generate report and download button (left aligned under response)
+                    report_txt = generate_combined_report(
+                        question,
+                        sql,
+                        rename_for_display(result_df) if not result_df.empty else None,
+                        st.session_state["last_insight"]
+                    )
+                    st.markdown('<div class="report-download-btn-container">', unsafe_allow_html=True)
+                    st.download_button(
+                        label="📥 Tải báo cáo phân tích (.txt)",
+                        data=report_txt,
+                        file_name="bien_ban_phan_tich.txt",
+                        mime="text/plain",
+                        key="download_chat_report_active",
+                    )
+                    st.markdown('</div>', unsafe_allow_html=True)
+            except Exception as exc:
+                status.update(label="Trợ lý phân tích gặp lỗi.", state="error")
+                st.error(f"Lỗi xử lý: {exc}")
+elif st.session_state["last_question"]:
+    with st.status("Hoàn tất.", state="complete", expanded=False):
+        st.markdown("##### Câu hỏi")
+        st.write(st.session_state["last_question"])
+        with st.expander("Truy vấn dữ liệu đã sử dụng"):
+            st.code(st.session_state["last_sql"], language="sql")
+        
+        result_df = st.session_state["last_result_df"]
+        if result_df is not None and not result_df.empty:
+            display_result_df = rename_for_display(result_df)
+            auto_fig = make_auto_chart(display_result_df, "Kết quả phân tích từ dữ liệu")
+            if auto_fig is not None:
+                st.plotly_chart(auto_fig, use_container_width=True)
+            st.dataframe(display_result_df, use_container_width=True, hide_index=True)
+            
+        st.markdown("##### Nhận định và hành động đề xuất")
+        st.markdown(st.session_state["last_insight"])
+        
+        # Generate report and download button (left aligned under response)
+        report_txt = generate_combined_report(
+            st.session_state["last_question"],
+            st.session_state["last_sql"],
+            rename_for_display(result_df) if (result_df is not None and not result_df.empty) else None,
+            st.session_state["last_insight"]
+        )
+        st.markdown('<div class="report-download-btn-container">', unsafe_allow_html=True)
+        st.download_button(
+            label="📥 Tải báo cáo phân tích (.txt)",
+            data=report_txt,
+            file_name="bien_ban_phan_tich.txt",
+            mime="text/plain",
+            key="download_chat_report_persistent",
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+if st.session_state.get("chat_history"):
+    with st.expander("📜 Lịch sử phân tích gần đây", expanded=False):
+        st.markdown('<div class="history-section-marker"></div>', unsafe_allow_html=True)
+        
+        # Filter duplicates (maintaining forward list to keep original STT indices)
+        seen = set()
+        unique_history_forward = []
+        for h in st.session_state["chat_history"]:
+            q_clean = h["question"].strip()
+            if q_clean not in seen:
+                seen.add(q_clean)
+                unique_history_forward.append(h)
+                
+        # Index each with its original sequential STT (1, 2, ...) and then reverse
+        unique_history_with_idx = [
+            {"original_stt": idx + 1, "data": item}
+            for idx, item in enumerate(unique_history_forward)
+        ]
+        unique_history_reversed = list(reversed(unique_history_with_idx))
+        
+        # Render all questions inside a scrollable container
+        n_items = len(unique_history_with_idx)
+        dynamic_height = min(n_items * 44 + 16, 220)
+        with st.container(height=dynamic_height, border=False):
+            for item_wrapper in unique_history_reversed:
+                orig_stt = item_wrapper["original_stt"]
+                h = item_wrapper["data"]
+                
+                if st.button(f"{orig_stt}. {h['question']}", key=f"hist_btn_{orig_stt}", use_container_width=True):
+                    st.session_state["pending_question"] = h["question"]
+                    st.rerun()
