@@ -2101,6 +2101,7 @@ days_for_shipment_scheduled, late_delivery_risk, delivery_status, market,
 order_region, order_city, order_state, order_country, latitude, longitude,
 order_date, shipping_date, order_year, order_month, order_quarter, order_weekday,
 order_status, order_type.
+LƯU Ý QUAN TRỌNG: cột order_type tuy tên gọi là "loại đơn hàng" nhưng giá trị thực tế của nó là HÌNH THỨC/PHƯƠNG THỨC THANH TOÁN của đơn hàng, gồm các giá trị: DEBIT, TRANSFER, CASH, PAYMENT. Vì vậy khi người dùng hỏi về "phương thức thanh toán", "hình thức thanh toán", "loại thanh toán", "thanh toán bằng debit/chuyển khoản/tiền mặt", v.v., bạn PHẢI dùng cột order_type (KHÔNG được trả về NO_MATCHING_COLUMN cho các câu hỏi này).
 
 Bảng dự báo AI: {ML_TABLE}
 Cột: order_id, shipping_mode, customer_state, order_type, order_region,
@@ -2164,8 +2165,9 @@ Tuyệt đối KHÔNG TRUY VẤN bảng `stg_supplychain_v2` hay tính toán lat
 
 QUY TẮC BẮT BUỘC VỀ PHẠM VI DỮ LIỆU (chống bịa cột/diễn giải sai):
 - Bạn CHỈ được dùng đúng các cột đã liệt kê ở trên. TUYỆT ĐỐI KHÔNG được tự suy diễn, đổi tên, hoặc thay thế bằng một cột "gần giống về nghĩa" khi khái niệm người dùng hỏi không có cột tương ứng.
-- Ví dụ SAI: người dùng hỏi "phương thức thanh toán" (payment method) nhưng dữ liệu không có cột này -> KHÔNG được tự động dùng shipping_mode (phương thức vận chuyển) để trả lời thay, vì đây là hai khái niệm nghiệp vụ khác nhau hoàn toàn.
-- Nếu câu hỏi nhắc đến một khái niệm/thuộc tính/số liệu KHÔNG có cột tương ứng trong danh sách đã liệt kê (ví dụ: phương thức thanh toán, đánh giá/rating khách hàng, tồn kho, giá vốn, dự báo tương lai chưa xảy ra, v.v.), bạn KHÔNG được viết SQL. Thay vào đó, chỉ trả về DUY NHẤT một dòng theo đúng định dạng:
+- Ví dụ SAI: người dùng hỏi "phương thức vận chuyển nào có tỷ lệ trễ cao nhất" nhưng nhầm sang hỏi về "đánh giá/rating khách hàng" -> KHÔNG được tự động dùng shipping_mode hay customer_segment để trả lời thay cho rating, vì dữ liệu không có cột đánh giá khách hàng.
+- Riêng khái niệm "phương thức/hình thức thanh toán" ĐÃ CÓ cột tương ứng là order_type (xem lưu ý ở trên) -> LUÔN dùng order_type cho các câu hỏi này, KHÔNG được coi là ngoài phạm vi.
+- Nếu câu hỏi nhắc đến một khái niệm/thuộc tính/số liệu KHÔNG có cột tương ứng trong danh sách đã liệt kê (ví dụ: đánh giá/rating khách hàng, tồn kho, giá vốn, dự báo tương lai chưa xảy ra, v.v.), bạn KHÔNG được viết SQL. Thay vào đó, chỉ trả về DUY NHẤT một dòng theo đúng định dạng:
 NO_MATCHING_COLUMN: <mô tả ngắn gọn khái niệm không có dữ liệu>
 - Không thêm giải thích, không thêm SQL, không thêm ký tự nào khác ngoài dòng trên khi rơi vào trường hợp này.
 """
