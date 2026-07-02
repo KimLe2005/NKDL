@@ -1048,6 +1048,28 @@ def html_escape(value) -> str:
     return html.escape("" if value is None else str(value))
 
 
+def format_llm_error(exc: Exception) -> str:
+    """
+    Groq free tier co gioi han token/ngay (TPD). Khi het quota, API tra ve loi
+    429 rate_limit_exceeded kem theo thoi gian can doi de duoc reset. Ham nay
+    nhan dien dung loi do va tra ve thong bao tieng Viet de hieu, thay vi hien
+    nguyen JSON loi tho cho nguoi dung cuoi.
+    """
+    status_code = getattr(exc, "status_code", None)
+    text = str(exc)
+    is_rate_limit = status_code == 429 or "rate_limit_exceeded" in text or "429" in text
+
+    if is_rate_limit:
+        wait_match = re.search(r"try again in ([0-9.a-z]+)", text, flags=re.IGNORECASE)
+        wait_text = f" Vui lòng thử lại sau khoảng {wait_match.group(1)}." if wait_match else " Vui lòng thử lại sau ít phút."
+        return (
+            "⚠️ Đã dùng hết hạn mức token miễn phí trong ngày của Groq API cho phần hỏi dữ liệu."
+            + wait_text
+            + " (Có thể đổi khóa API khác trong phần cài đặt, hoặc nâng cấp Dev Tier trên console.groq.com nếu cần dùng ngay.)"
+        )
+    return f"Lỗi xử lý: {exc}"
+
+
 def show_centered_modal(title: str, message: str, auto_close_ms: int = 3000):
     """
     Hien thi popup thong bao giua man hinh (backdrop mo + box trang bo goc +
@@ -2052,6 +2074,22 @@ def extract_sql(text: str) -> str:
     return text.strip()
 
 
+def extract_no_matching_column(text: str):
+    """
+    Bat tin hieu tu choi cua model khi cau hoi nhac den mot khai niem/thuoc tinh
+    KHONG co cot tuong ung trong schema (vi du: hoi 'phuong thuc thanh toan'
+    trong khi du lieu chi co 'phuong thuc van chuyen'). Neu khong co bo chan
+    nay, model co xu huong tu dong thay the bang cot gan giong ve ten/nghia va
+    tra loi mot cach tu tin nhu the da tra loi dung, gay hieu nham nghiem trong
+    hon ca loi ky thuat thong thuong (silent misinterpretation).
+    Tra ve mo ta khai niem khong co du lieu neu phat hien, nguoc lai tra ve None.
+    """
+    match = re.search(r"NO_MATCHING_COLUMN\s*:\s*(.+)", text, flags=re.IGNORECASE)
+    if match:
+        return match.group(1).strip().strip("`").strip()
+    return None
+
+
 SCHEMA_CONTEXT = f"""
 Bạn là chuyên gia Auto-SQL cho DuckDB. Chỉ được sinh SELECT/WITH an toàn.
 
@@ -2123,6 +2161,13 @@ MẸO NHẬN BIẾT CÂU HỎI CỦA NGƯỜI DÙNG:
 - Bạn PHẢI viết câu lệnh SELECT tính TRUNG BÌNH GIÁ TRỊ TUYỆT ĐỐI (AVG(ABS(...))) của các cột SHAP trong bảng `{ML_TABLE}`.
 
 Tuyệt đối KHÔNG TRUY VẤN bảng `stg_supplychain_v2` hay tính toán late_delivery_risk cho câu hỏi này, vì đây là câu hỏi giải thích mô hình Machine Learning!
+
+QUY TẮC BẮT BUỘC VỀ PHẠM VI DỮ LIỆU (chống bịa cột/diễn giải sai):
+- Bạn CHỈ được dùng đúng các cột đã liệt kê ở trên. TUYỆT ĐỐI KHÔNG được tự suy diễn, đổi tên, hoặc thay thế bằng một cột "gần giống về nghĩa" khi khái niệm người dùng hỏi không có cột tương ứng.
+- Ví dụ SAI: người dùng hỏi "phương thức thanh toán" (payment method) nhưng dữ liệu không có cột này -> KHÔNG được tự động dùng shipping_mode (phương thức vận chuyển) để trả lời thay, vì đây là hai khái niệm nghiệp vụ khác nhau hoàn toàn.
+- Nếu câu hỏi nhắc đến một khái niệm/thuộc tính/số liệu KHÔNG có cột tương ứng trong danh sách đã liệt kê (ví dụ: phương thức thanh toán, đánh giá/rating khách hàng, tồn kho, giá vốn, dự báo tương lai chưa xảy ra, v.v.), bạn KHÔNG được viết SQL. Thay vào đó, chỉ trả về DUY NHẤT một dòng theo đúng định dạng:
+NO_MATCHING_COLUMN: <mô tả ngắn gọn khái niệm không có dữ liệu>
+- Không thêm giải thích, không thêm SQL, không thêm ký tự nào khác ngoài dòng trên khi rơi vào trường hợp này.
 """
 
 
@@ -3440,100 +3485,110 @@ if question:
                     temperature=0,
                     max_tokens=600,
                 )
-                sql = extract_sql(sql_response.choices[0].message.content)
-                if not is_safe_select(sql):
-                    status.update(label="Không thể tạo truy vấn an toàn cho câu hỏi này.", state="error")
-                    st.code(sql, language="sql")
+                raw_sql_output = sql_response.choices[0].message.content
+                missing_concept = extract_no_matching_column(raw_sql_output)
+                if missing_concept:
+                    status.update(label="Câu hỏi ngoài phạm vi dữ liệu hiện có.", state="error")
+                    st.warning(
+                        f"⚠️ Câu hỏi có nhắc đến **{missing_concept}**, nhưng dữ liệu hệ thống đang quản lý "
+                        "hiện không có thuộc tính này. Hệ thống không tự suy diễn sang cột khác để tránh trả lời "
+                        "sai lệch — vui lòng đặt câu hỏi khác trong phạm vi dữ liệu vận hành và dự báo hiện có."
+                    )
                 else:
-                    status.update(label="Đang truy vấn kho dữ liệu.", state="running")
-                    result_df = con.execute(sql).df()
-                    
-                    try:
-                        status.update(label="Đang phân tích dữ liệu.", state="running")
-                        # Chuyển đổi tối đa 30 dòng dữ liệu thành dạng text để LLM đọc và hiểu bản chất
-                        preview = result_df.head(30).to_string(index=False) if not result_df.empty else "Không có dữ liệu phù hợp."
-                        
-                        # Gọi LLM sinh phản hồi chuyên sâu
-                        insight_response = client.chat.completions.create(
-                            model="llama-3.3-70b-versatile",
-                            messages=[
-                                {
-                                    "role": "system",
-                                    "content": (
-                                        "Bạn là chuyên viên phân tích dữ liệu vận hành chuỗi cung ứng. "
-                                        "Chỉ dựa vào dữ liệu được cung cấp, không tự bịa thêm số liệu hoặc hành động đã thực thi. "
-                                        "Nếu dữ liệu chưa đủ, truy vấn có thể gây hiểu nhầm, hoặc kết quả chỉ là mẫu nhỏ, phải nêu rõ giới hạn. "
-                                        "Trả lời bằng tiếng Việt, ngắn gọn, trực tiếp cho trưởng ca logistics.\n\n"
-                                        "**Nhận xét vận hành:** Nêu 2-3 điểm chính từ dữ liệu, ưu tiên số liệu có tác động tới giao hàng, doanh thu hoặc năng lực xử lý.\n\n"
-                                        "**Rủi ro cần kiểm tra:** Nêu rủi ro chính và điều kiện cần xác minh trước khi ra quyết định.\n\n"
-                                        "**Hành động tham khảo:** Đề xuất 2-3 bước có thể xem xét. Không viết như hệ thống đã gửi lệnh, đã thông báo khách hàng hoặc đã điều phối thật.\n\n"
-                                        "**Kết luận:** Một câu ngắn cho người quản lý ca."
-                                    ),
-                                },
-                                {
-                                    "role": "user",
-                                    "content": f"Câu hỏi: {question}\n\nKết quả truy vấn dữ liệu:\n{preview}\n\nHãy phân tích đúng phạm vi dữ liệu và nêu giới hạn nếu cần.",
-                                },
-                            ],
-                            temperature=0.5,
-                            max_tokens=1600,
-                        )
-                        
-                        status.update(label="Phân tích hoàn tất.", state="complete", expanded=False)
-                        
-                        # Lưu thông tin phân tích vào session_state để không bị mất khi render lại giao diện
-                        st.session_state["last_question"] = question
-                        st.session_state["last_sql"] = sql
-                        st.session_state["last_result_df"] = result_df
-                        st.session_state["last_insight"] = insight_response.choices[0].message.content
-                        st.session_state["chat_history"].append({
-                            "question": question,
-                            "sql": sql,
-                            "insight": insight_response.choices[0].message.content
-                        })
-                    except Exception as exc:
-                        status.update(label="Phân tích gặp lỗi.", state="error")
-                        st.error(f"Lỗi trong quá trình phân tích dữ liệu: {exc}")
-                    
-                    st.markdown("##### Câu hỏi")
-                    st.write(question)
-                    with st.expander("Truy vấn dữ liệu đã sử dụng", expanded=True):
+                    sql = extract_sql(raw_sql_output)
+                    if not is_safe_select(sql):
+                        status.update(label="Không thể tạo truy vấn an toàn cho câu hỏi này.", state="error")
                         st.code(sql, language="sql")
-                        for note in sql_quality_notes(sql):
-                            st.warning(note)
-                    if not result_df.empty:
-                        display_result_df = rename_for_display(result_df)
-                        auto_fig = make_auto_chart(display_result_df, "Kết quả phân tích từ dữ liệu")
-                        if auto_fig is not None:
-                            st.plotly_chart(auto_fig, use_container_width=True)
-                        st.dataframe(display_result_df, use_container_width=True, hide_index=True)
+                    else:
+                        status.update(label="Đang truy vấn kho dữ liệu.", state="running")
+                        result_df = con.execute(sql).df()
                         
-                    st.markdown("##### Nhận định và hành động đề xuất")
-                    st.caption(
-                        "Nhận định dưới đây được tạo từ kết quả truy vấn hiển thị ở trên; "
-                        "không thay thế kiểm tra nghiệp vụ trước khi chốt hành động."
-                    )
-                    st.markdown(st.session_state["last_insight"])
-                    
-                    # Generate report and download button (left aligned under response)
-                    report_txt = generate_combined_report(
-                        question,
-                        sql,
-                        rename_for_display(result_df) if not result_df.empty else None,
-                        st.session_state["last_insight"]
-                    )
-                    st.markdown('<div class="report-download-btn-container">', unsafe_allow_html=True)
-                    st.download_button(
-                        label="📥 Tải báo cáo phân tích (.txt)",
-                        data=report_txt,
-                        file_name="bien_ban_phan_tich.txt",
-                        mime="text/plain",
-                        key="download_chat_report_active",
-                    )
-                    st.markdown('</div>', unsafe_allow_html=True)
+                        try:
+                            status.update(label="Đang phân tích dữ liệu.", state="running")
+                            # Chuyển đổi tối đa 30 dòng dữ liệu thành dạng text để LLM đọc và hiểu bản chất
+                            preview = result_df.head(30).to_string(index=False) if not result_df.empty else "Không có dữ liệu phù hợp."
+                            
+                            # Gọi LLM sinh phản hồi chuyên sâu
+                            insight_response = client.chat.completions.create(
+                                model="llama-3.3-70b-versatile",
+                                messages=[
+                                    {
+                                        "role": "system",
+                                        "content": (
+                                            "Bạn là chuyên viên phân tích dữ liệu vận hành chuỗi cung ứng. "
+                                            "Chỉ dựa vào dữ liệu được cung cấp, không tự bịa thêm số liệu hoặc hành động đã thực thi. "
+                                            "Nếu dữ liệu chưa đủ, truy vấn có thể gây hiểu nhầm, hoặc kết quả chỉ là mẫu nhỏ, phải nêu rõ giới hạn. "
+                                            "Trả lời bằng tiếng Việt, ngắn gọn, trực tiếp cho trưởng ca logistics.\n\n"
+                                            "**Nhận xét vận hành:** Nêu 2-3 điểm chính từ dữ liệu, ưu tiên số liệu có tác động tới giao hàng, doanh thu hoặc năng lực xử lý.\n\n"
+                                            "**Rủi ro cần kiểm tra:** Nêu rủi ro chính và điều kiện cần xác minh trước khi ra quyết định.\n\n"
+                                            "**Hành động tham khảo:** Đề xuất 2-3 bước có thể xem xét. Không viết như hệ thống đã gửi lệnh, đã thông báo khách hàng hoặc đã điều phối thật.\n\n"
+                                            "**Kết luận:** Một câu ngắn cho người quản lý ca."
+                                        ),
+                                    },
+                                    {
+                                        "role": "user",
+                                        "content": f"Câu hỏi: {question}\n\nKết quả truy vấn dữ liệu:\n{preview}\n\nHãy phân tích đúng phạm vi dữ liệu và nêu giới hạn nếu cần.",
+                                    },
+                                ],
+                                temperature=0.5,
+                                max_tokens=1600,
+                            )
+                            
+                            status.update(label="Phân tích hoàn tất.", state="complete", expanded=False)
+                            
+                            # Lưu thông tin phân tích vào session_state để không bị mất khi render lại giao diện
+                            st.session_state["last_question"] = question
+                            st.session_state["last_sql"] = sql
+                            st.session_state["last_result_df"] = result_df
+                            st.session_state["last_insight"] = insight_response.choices[0].message.content
+                            st.session_state["chat_history"].append({
+                                "question": question,
+                                "sql": sql,
+                                "insight": insight_response.choices[0].message.content
+                            })
+                        except Exception as exc:
+                            status.update(label="Phân tích gặp lỗi.", state="error")
+                            st.error(format_llm_error(exc))
+                        
+                        st.markdown("##### Câu hỏi")
+                        st.write(question)
+                        with st.expander("Truy vấn dữ liệu đã sử dụng", expanded=True):
+                            st.code(sql, language="sql")
+                            for note in sql_quality_notes(sql):
+                                st.warning(note)
+                        if not result_df.empty:
+                            display_result_df = rename_for_display(result_df)
+                            auto_fig = make_auto_chart(display_result_df, "Kết quả phân tích từ dữ liệu")
+                            if auto_fig is not None:
+                                st.plotly_chart(auto_fig, use_container_width=True)
+                            st.dataframe(display_result_df, use_container_width=True, hide_index=True)
+                            
+                        st.markdown("##### Nhận định và hành động đề xuất")
+                        st.caption(
+                            "Nhận định dưới đây được tạo từ kết quả truy vấn hiển thị ở trên; "
+                            "không thay thế kiểm tra nghiệp vụ trước khi chốt hành động."
+                        )
+                        st.markdown(st.session_state["last_insight"])
+                        
+                        # Generate report and download button (left aligned under response)
+                        report_txt = generate_combined_report(
+                            question,
+                            sql,
+                            rename_for_display(result_df) if not result_df.empty else None,
+                            st.session_state["last_insight"]
+                        )
+                        st.markdown('<div class="report-download-btn-container">', unsafe_allow_html=True)
+                        st.download_button(
+                            label="📥 Tải báo cáo phân tích (.txt)",
+                            data=report_txt,
+                            file_name="bien_ban_phan_tich.txt",
+                            mime="text/plain",
+                            key="download_chat_report_active",
+                        )
+                        st.markdown('</div>', unsafe_allow_html=True)
             except Exception as exc:
                 status.update(label="Phân tích gặp lỗi.", state="error")
-                st.error(f"Lỗi xử lý: {exc}")
+                st.error(format_llm_error(exc))
 elif st.session_state["last_question"]:
     with st.status("Hoàn tất.", state="complete", expanded=False):
         st.markdown("##### Câu hỏi")
